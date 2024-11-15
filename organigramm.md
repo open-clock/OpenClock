@@ -1,7 +1,9 @@
+# Team Organization
+
+## Organigramm
 
 ```mermaid
-%%{ init: { 'stateDiagram': { 'curve': 'stepAfter' } } }%%
-stateDiagram 
+stateDiagram-v2 
 
 n : Nicolas Kasper
 k : David Klier
@@ -23,7 +25,7 @@ opencl --> Marketing
 
 
 Project --> b
-software --> b
+software --> b 
 software --> j
 software --> k
 Hardware --> j
@@ -34,6 +36,6 @@ Marketing --> n
 Marketing --> k
 
 
-
-
 ```
+
+
