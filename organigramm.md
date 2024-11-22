@@ -37,5 +37,3 @@ Marketing --> k
 
 
 ```
-
-

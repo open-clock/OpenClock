@@ -1,0 +1,12 @@
+
+{'id': 3596031, 'date': 20241121, 'startTime': 1010, 'endTime': 1100, 'kl': [{'id': 3636}], 'te': [{'id': 356}], 'su': [{'id': 7}], 'ro': [{'id': 39}], 'lsnumber': 793800, 'sg': 'AM_3AHIT_HAUK', 'activityType': 'Unterricht'}
+{'id': 3596034, 'date': 20241121, 'startTime': 1105, 'endTime': 1155, 'kl': [{'id': 3636}], 'te': [{'id': 356}], 'su': [{'id': 7}], 'ro': [{'id': 39}], 'lsnumber': 793800, 'sg': 'AM_3AHIT_HAUK', 'activityType': 'Unterricht'}
+
+{'id': 3717489, 'date': 20241121, 'startTime': 815, 'endTime': 905, 'kl': [{'id': 3636}], 'te': [{'id': 228}, {'id': 356}], 'su': [{'id': 177}], 'ro': [{'id': 39}, {'id': 40}], 'lstext': 'Gruppenwechsel', 'lsnumber': 973000, 'sg': 'SEW_3AHIT', 'activityType': 'Unterricht'}       
+{'id': 3717492, 'date': 20241121, 'startTime': 905, 'endTime': 955, 'kl': [{'id': 3636}], 'te': [{'id': 228}, {'id': 356}], 'su': [{'id': 177}], 'ro': [{'id': 39}, {'id': 40}], 'lstext': 'Gruppenwechsel', 'lsnumber': 973000, 'sg': 'SEW_3AHIT', 'activityType': 'Unterricht'}       
+{'id': 3827309, 'date': 20241121, 'startTime': 1440, 'endTime': 1530, 'kl': [{'id': 3636}], 'te': [{'id': 356}], 'su': [{'id': 192}], 'ro': [{'id': 39}], 'lstext': 'Proj.Mgmt.', 'lsnumber': 907200, 'sg': 'ITP2_3AHIT_HAUK', 'activityType': 'Unterricht'}
+{'id': 3827312, 'date': 20241121, 'startTime': 1535, 'endTime': 1625, 'kl': [{'id': 3636}], 'te': [{'id': 356}], 'su': [{'id': 192}], 'ro': [{'id': 39}], 'lstext': 'Proj.Mgmt.', 'lsnumber': 907200, 'sg': 'ITP2_3AHIT_HAUK', 'activityType': 'Unterricht'}
+{'id': 3754765, 'date': 20241121, 'startTime': 1200, 'endTime': 1250, 'kl': [{'id': 3636}], 'te': [{'id': 228, 'orgid': 31}, {'id': 228}], 'su': [{'id': 192}], 'ro': [{'id': 39}], 'lstext': 'UE', 'lsnumber': 905900, 'sg': 'ITP2_3AHIT', 'activityType': 'Unterricht'}
+{'id': 3754768, 'date': 20241121, 'startTime': 1255, 'endTime': 1345, 'kl': [{'id': 3636}], 'te': [{'id': 228, 'orgid': 31}, {'id': 228}], 'su': [{'id': 192}], 'ro': [{'id': 39}], 'lstext': 'UE', 'lsnumber': 905900, 'sg': 'ITP2_3AHIT', 'activityType': 'Unterricht'}
+
+{'id': 3859920, 'date': 20241121, 'startTime': 1345, 'endTime': 1435, 'kl': [{'id': 3618}, {'id': 3624}, {'id': 3636}, {'id': 3654}, {'id': 3666}, {'id': 3711}], 'te': [{'id': 342}], 'su': [{'id': 129}], 'ro': [{'id': 19}], 'lsnumber': 666700, 'sg': 'RE_1AHIT2BHMBT3AFET3AHIT3BHME4BHMBT_WAGE', 'activityType': 'Unterricht'}
