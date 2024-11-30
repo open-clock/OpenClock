@@ -1,0 +1,10 @@
+---
+import Layout from '../layouts/Layout.astro';
+import ModelView from '../components/3dview';
+---
+
+<Layout title="OpenClock">
+    <div class="w-96 h-96">
+        <ModelView client:load />
+    </div>
+</Layout>
