@@ -12,6 +12,7 @@ export default function ModelView() {
       <Canvas camera={{ position: [0, 0, 10], fov: 25 }} fallback={<h1>OpenGL isnt supported</h1>}>
         <ambientLight intensity={Math.PI} />
         <Model />
+        <Environment preset="city" />
       </Canvas>
     </Suspense>
   )
