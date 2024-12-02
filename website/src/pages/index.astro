@@ -1,38 +1,54 @@
 ---
-import Layout from '../layouts/Layout.astro';
-import ModelView from '../components/3dview';
-import { Image } from 'astro:assets';
-import fallbackImage from '../img/fallback.png';
+import Layout from "../layouts/Layout.astro";
+import ModelView from "../components/3dview";
+import { Image } from "astro:assets";
+import fallbackImage from "../img/fallback.png";
 ---
 
 <Layout title="OpenClock">
   <div class="px-4 md:px-8">
     <div class="min-h-screen">
       <!-- Hero Section -->
-      <div class="flex flex-col-reverse md:flex-row items-center justify-between py-16 gap-8">
+      <div
+        class="flex flex-col-reverse md:flex-row items-center justify-between py-16 gap-8"
+      >
         <!-- Left side - Text Content -->
         <div class="w-full md:w-1/2 space-y-6">
           <h1 class="text-5xl md:text-7xl font-bold">
             Your new
-            <span id="scrambleText1" class="block text-accent dark:text-dark-accent">innovative</span>
-            <span id="scrambleText2" class="block text-accent dark:text-dark-accent">timepiece</span>
+            <span
+              id="scrambleText1"
+              class="block text-accent dark:text-dark-accent">innovative</span
+            >
+            <span
+              id="scrambleText2"
+              class="block text-accent dark:text-dark-accent">timepiece</span
+            >
           </h1>
           <p class="text-xl text-secondary dark:text-dark-secondary">
             Experience time in a whole new dimension
           </p>
-          <a href="#variants" class="inline-block px-8 py-4 bg-primary dark:bg-dark-primary text-background dark:text-dark-background rounded-lg transition-transform hover:scale-105 text-xl">
+          <a
+            href="#variants"
+            class="inline-block px-8 py-4 bg-primary dark:bg-dark-primary text-background dark:text-dark-background rounded-lg transition-transform hover:scale-105 text-xl"
+          >
             Discover Variants
           </a>
         </div>
-        
+
         <!-- Right side - 3D Clock -->
-        <div class="w-full md:w-1/2 h-[50vh] md:h-[80vh] bg-secondary/10 dark:bg-dark-secondary/10 rounded-xl flex items-center justify-center">
+        <div
+          class="w-full md:w-1/2 h-[50vh] md:h-[80vh] bg-secondary/10 dark:bg-dark-secondary/10 rounded-xl flex items-center justify-center"
+        >
           <div class="w-full h-full">
             <ModelView client:only="react">
-              <div slot="fallback" class="w-full h-full flex items-center justify-center">
-                <Image 
-                  src={fallbackImage} 
-                  alt={"Fallback image"} 
+              <div
+                slot="fallback"
+                class="w-full h-full flex items-center justify-center"
+              >
+                <Image
+                  src={fallbackImage}
+                  alt={"Fallback image"}
                   class={"w-full h-[50vh] md:h-[80vh] object-contain"}
                 />
               </div>
@@ -41,102 +57,208 @@ import fallbackImage from '../img/fallback.png';
         </div>
       </div>
     </div>
-      <!-- Variants Section -->
-      <section id="variants" class="py-16">
-        <h2 class="text-3xl font-bold text-center mb-12">Choose Your Style</h2>
-        <div class="flex flex-col md:flex-row gap-8">
-          <!-- Variant 1 -->
-          <div class="flex-1 p-6 rounded-xl bg-secondary/10 dark:bg-dark-secondary/10">
-            <h3 class="text-2xl font-bold mb-4">Classic Edition</h3>
-            <div class="h-[300px] bg-secondary/20 dark:bg-dark-secondary/20 rounded-lg mb-4"></div>
-            <p class="text-secondary dark:text-dark-secondary">
-              Traditional design with modern technology
+    <!-- Variants Section -->
+    <section id="variants" class="py-16">
+      <h2 class="text-3xl font-bold text-center mb-12">Choose Your Variant</h2>
+      <div class="flex flex-col md:flex-row gap-8">
+        <!-- Variant 1 -->
+        <div class="flex-1">
+          <a
+            href="/variants/home"
+            class="block p-6 rounded-xl bg-secondary/10 dark:bg-dark-secondary/10 transition hover:scale-105 mb-4"
+          >
+            <h3 class="text-2xl font-bold mb-4">Home Edition</h3>
+            <div
+              class="h-[300px] bg-secondary/20 dark:bg-dark-secondary/20 rounded-lg mb-4"
+            >
+            </div>
+            <p class="text-secondary dark:text-dark-secondary mb-4">
+              The Companion for the modern home
             </p>
-          </div>
-  
-          <!-- Variant 2 -->
-          <div class="flex-1 p-6 rounded-xl bg-secondary/10 dark:bg-dark-secondary/10">
-            <h3 class="text-2xl font-bold mb-4">Modern Edition</h3>
-            <div class="h-[300px] bg-secondary/20 dark:bg-dark-secondary/20 rounded-lg mb-4"></div>
-            <p class="text-secondary dark:text-dark-secondary">
-              Minimalist design for contemporary spaces
-            </p>
-          </div>
+            <div class="flex justify-between items-center">
+              <span class="text-2xl font-bold">99€</span>
+              <button
+                class="px-6 py-2 bg-accent dark:bg-dark-accent text-background dark:text-dark-background rounded-lg"
+              >
+                Buy Now
+              </button>
+            </div>
+            <!-- Home Edition Features Table -->
+            <div
+              class="overflow-x-auto rounded-lg bg-secondary/5 dark:bg-dark-secondary/5 p-4"
+            >
+              <table class="w-full">
+                <tbody>
+                  <tr
+                    class="border-b border-secondary/10 dark:border-dark-secondary/10"
+                  >
+                    <td class="py-2 font-medium">Display</td>
+                    <td class="py-2">7.5" E-Paper</td>
+                  </tr>
+                  <tr
+                    class="border-b border-secondary/10 dark:border-dark-secondary/10"
+                  >
+                    <td class="py-2 font-medium">Power</td>
+                    <td class="py-2">USB-C</td>
+                  </tr>
+                  <tr
+                    class="border-b border-secondary/10 dark:border-dark-secondary/10"
+                  >
+                    <td class="py-2 font-medium">Connectivity</td>
+                    <td class="py-2">WiFi</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </a>
         </div>
-      </section>
+
+        <!-- Variant 2 -->
+        <div class="flex-1">
+          <a
+            href="/variants/school"
+            class="block p-6 rounded-xl bg-secondary/10 dark:bg-dark-secondary/10 transition hover:scale-105 mb-4"
+          >
+            <h3 class="text-2xl font-bold mb-4">School Edition</h3>
+            <div
+              class="h-[300px] bg-secondary/20 dark:bg-dark-secondary/20 rounded-lg mb-4"
+            >
+            </div>
+            <p class="text-secondary dark:text-dark-secondary mb-4">
+              The perfect overview in your classroom
+            </p>
+            <div class="flex justify-between items-center">
+              <span class="text-2xl font-bold">699€</span>
+              <button
+                class="px-6 py-2 bg-accent dark:bg-dark-accent text-background dark:text-dark-background rounded-lg"
+              >
+                Buy Now
+              </button>
+            </div>
+            <!-- School Edition Features Table -->
+            <div
+              class="overflow-x-auto rounded-lg bg-secondary/5 dark:bg-dark-secondary/5 p-4"
+            >
+              <table class="w-full">
+                <tbody>
+                  <tr
+                    class="border-b border-secondary/10 dark:border-dark-secondary/10"
+                  >
+                    <td class="py-2 font-medium">Display</td>
+                    <td class="py-2">9 x 13.5" E-Paper</td>
+                  </tr>
+                  <tr
+                    class="border-b border-secondary/10 dark:border-dark-secondary/10"
+                  >
+                    <td class="py-2 font-medium">Power</td>
+                    <td class="py-2">USB-C or 5V DC (via terminal block)</td>
+                  </tr>
+                  <tr
+                    class="border-b border-secondary/10 dark:border-dark-secondary/10"
+                  >
+                    <td class="py-2 font-medium">Connectivity</td>
+                    <td class="py-2">WiFi, Ethernet</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </a>
+        </div>
+      </div>
+    </section>
   </div>
-</Layout>
 
-<script>
-  const words1 = ['innovative', 'email', 'unique', "expandable"];
-  const words2 = ['timepiece', 'overview', 'timetable', "companion"];
-  let currentIndex1 = 0;
-  let currentIndex2 = 0;
-  let mainInterval: NodeJS.Timer;
-  const activeIntervals = new Set<NodeJS.Timer>();
-
-  function scrambleText(element: HTMLElement, finalText: string) {
-    // Clear any existing animation on this element
-    //element.textContent = '';
-    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-    let iterations = 0;
-    
-    const interval = setInterval(() => {
-      element.innerText = finalText
-        .split('')
-        .map((letter, index) => {
-          if (index < iterations) {
-            return finalText[index];
+  <script>
+      const words1 = ["innovative", "email", "unique", "expandable"];
+      const words2 = ["timepiece", "overview", "timetable", "companion"];
+      let currentIndex1 = 0;
+      let currentIndex2 = 0;
+      let mainInterval: NodeJS.Timer;
+      const activeIntervals = new Set<NodeJS.Timer>();
+  
+      function prefersReducedMotion() {
+          return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      }
+  
+      function updateText(element: HTMLElement, finalText: string) {
+          if (prefersReducedMotion()) {
+              element.innerText = finalText;
+          } else {
+              scrambleText(element, finalText);
           }
-          return characters[Math.floor(Math.random() * characters.length)];
-        })
-        .join('');
-      
-      iterations += 1;
-      
-      if (iterations > finalText.length) {
-        clearInterval(interval);
-        element.innerText = finalText; // Ensure final text is exact
-        activeIntervals.delete(interval);
       }
-    }, 30);
-
-    activeIntervals.add(interval);
-  }
-
-  function startScrambleAnimation() {
-    mainInterval = setInterval(() => {
-      const element1 = document.getElementById('scrambleText1');
-      const element2 = document.getElementById('scrambleText2');
-      
-      if (element1 && element2) {
-        currentIndex1 = (currentIndex1 + 1) % words1.length;
-        currentIndex2 = (currentIndex2 + 1) % words2.length;
-        
-        scrambleText(element1, words1[currentIndex1]);
-        scrambleText(element2, words2[currentIndex2]);
+  
+      function scrambleText(element: HTMLElement, finalText: string) {
+          const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+          let iterations = 0;
+  
+          const interval = setInterval(() => {
+              element.innerText = finalText
+                  .split("")
+                  .map((letter, index) => {
+                      if (index < iterations) {
+                          return finalText[index];
+                      }
+                      return characters[Math.floor(Math.random() * characters.length)];
+                  })
+                  .join("");
+  
+              iterations += 1;
+  
+              if (iterations > finalText.length) {
+                  clearInterval(interval);
+                  element.innerText = finalText;
+                  activeIntervals.delete(interval);
+              }
+          }, 30);
+  
+          activeIntervals.add(interval);
       }
-    }, 3000);
-  }
-
-  function cleanup() {
-    // Clear main interval
-    if (mainInterval) clearInterval(mainInterval);
-    
-    // Clear all active scramble animations
-    activeIntervals.forEach(interval => clearInterval(interval));
-    activeIntervals.clear();
-  }
-
-  // Start animation
-  startScrambleAnimation();
-
-  // Cleanup on page unload
-  window.addEventListener('unload', cleanup);
-
-  // Smooth scroll for the Discover Variants button
-  document.querySelector('a[href="#variants"]')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    document.querySelector('#variants')?.scrollIntoView({ behavior: 'smooth' });
-  });
-</script>
+  
+      function startAnimation() {
+          mainInterval = setInterval(() => {
+              const element1 = document.getElementById("scrambleText1");
+              const element2 = document.getElementById("scrambleText2");
+  
+              if (element1 && element2) {
+                  currentIndex1 = (currentIndex1 + 1) % words1.length;
+                  currentIndex2 = (currentIndex2 + 1) % words2.length;
+  
+                  updateText(element1, words1[currentIndex1]);
+                  updateText(element2, words2[currentIndex2]);
+              }
+          }, 3000);
+      }
+  
+      function cleanup() {
+          if (mainInterval) clearInterval(mainInterval);
+          activeIntervals.forEach((interval) => clearInterval(interval));
+          activeIntervals.clear();
+      }
+  
+      // Handle changes to reduced motion preference
+      window.matchMedia('(prefers-reduced-motion: reduce)')
+          .addEventListener('change', () => {
+              cleanup();
+              startAnimation();
+          });
+  
+      // Start animation
+      startAnimation();
+  
+      // Cleanup on page unload
+      window.addEventListener("unload", cleanup);
+  
+      // Smooth scroll for the Discover Variants button
+      document
+          .querySelector('a[href="#variants"]')
+          ?.addEventListener("click", (e) => {
+              e.preventDefault();
+              document
+                  .querySelector("#variants")
+                  ?.scrollIntoView({ 
+                      behavior: prefersReducedMotion() ? "auto" : "smooth" 
+                  });
+          });
+  </script>
+</Layout>

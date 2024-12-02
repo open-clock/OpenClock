@@ -39,9 +39,9 @@ function Model() {
         enableRotate={true}
         minDistance={5}
         maxDistance={50}
-        //autoRotate={true}
-        //rotation={[0, 0, 0]}
-        //rotateSpeed={0.5}
+        autoRotate={true}
+        rotation={[0, 0, 0]}
+        rotateSpeed={0.5}
       />
       <primitive
         ref={modelRef}
