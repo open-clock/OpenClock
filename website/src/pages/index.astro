@@ -1,6 +1,8 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import ModelView from '../components/3dview';
+import { Image } from 'astro:assets';
+import fallbackImage from '../img/fallback.png';
 ---
 
 <Layout title="OpenClock">
@@ -26,7 +28,15 @@ import ModelView from '../components/3dview';
         <!-- Right side - 3D Clock -->
         <div class="w-full md:w-1/2 h-[50vh] md:h-[80vh] bg-secondary/10 dark:bg-dark-secondary/10 rounded-xl flex items-center justify-center">
           <div class="w-full h-full">
-            <ModelView client:load />
+            <ModelView client:only="react">
+              <div slot="fallback" class="w-full h-full flex items-center justify-center">
+                <Image 
+                  src={fallbackImage} 
+                  alt={"Fallback image"} 
+                  class={"w-full h-[50vh] md:h-[80vh] object-contain"}
+                />
+              </div>
+            </ModelView>
           </div>
         </div>
       </div>

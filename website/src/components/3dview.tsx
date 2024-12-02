@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, Suspense } from 'react'
 import { Canvas, extend, useThree, useFrame } from '@react-three/fiber'
 import { useGLTF, useTexture, Environment, Lightformer, OrbitControls } from '@react-three/drei'
 
@@ -8,10 +8,23 @@ useGLTF.preload('/model.glb')
 
 export default function ModelView() {
   return (
-    <Canvas camera={{ position: [0, 0, 10], fov: 25 }}>
-      <ambientLight intensity={Math.PI} />
-      <Model />
-    </Canvas>
+    <Suspense fallback={<Fallback/>}>
+      <Canvas camera={{ position: [0, 0, 10], fov: 25 }} fallback={<h1>OpenGL isnt supported</h1>}>
+        <ambientLight intensity={Math.PI} />
+        <Model />
+      </Canvas>
+    </Suspense>
+  )
+}
+
+
+function Fallback() {
+  return (
+    <>
+      <div className="w-full h-full flex items-center justify-center">
+        <h1 className='text-xl' >Loading 3D model...</h1>
+      </div>
+    </>
   )
 }
 
@@ -20,17 +33,17 @@ function Model() {
   const modelRef = useRef<THREE.Mesh>(null)
   return (
     <>
-      <OrbitControls 
+      <OrbitControls
         enableZoom={true}
         enablePan={true}
         enableRotate={true}
         minDistance={5}
-        maxDistance={500}
-        autoRotate={true}
-        rotation={[0, 0, 0]}
-        rotateSpeed={0.5}
+        maxDistance={50}
+        //autoRotate={true}
+        //rotation={[0, 0, 0]}
+        //rotateSpeed={0.5}
       />
-      <primitive 
+      <primitive
         ref={modelRef}
         object={gltf.scene}
         scale={0.18}
