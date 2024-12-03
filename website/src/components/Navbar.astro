@@ -1,7 +1,7 @@
 ---
 // Navbar.astro
 import { Image } from "astro:assets";
-import logo from "../img/logo.svg";
+import Logo from "./Logo.astro";
 const links = [
   { name: "Home", href: "/" },
   { name: "About", href: "/" },
@@ -14,11 +14,7 @@ const links = [
   <div class="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4 w-full">
     <!-- Logo/Brand -->
     <a href="/" class="flex items-center">
-      <Image 
-        src={logo} 
-        alt="Brand Logo"
-        class="h-8 w-auto brightness-0 dark:brightness-100 dark:invert"
-      />
+      <Logo />
     </a>
 
     <!-- Mobile menu button -->
