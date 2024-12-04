@@ -8,7 +8,7 @@ import os
 
 # App configuration
 CLIENT_ID = "cda7262c-6d80-4c31-adb6-5d9027364fa7"
-SCOPES = ["User.Read", "Mail.Read"]  # Added Mail.Read scope
+SCOPES = ["User.Read", "Calendars.Read", "Calendars.Read.Shared", "Calendars.ReadBasic", "EduAssignments.Read", "EduAssignments.ReadBasic", "Mail.Read", "Mail.Read.Shared", "Mail.ReadBasic", "Mail.ReadBasic.Shared", "Team.ReadBasic.All"]  # Added Mail.Read scope
 GRAPH_API_ENDPOINT = "https://graph.microsoft.com/v1.0"
 
 cache_filename = os.path.join(".","cache.bin")
@@ -57,7 +57,7 @@ if not result:
 if "access_token" in result:
     # Calling graph using the access token
     graph_data = requests.get(  # Use token to call downstream service
-        GRAPH_API_ENDPOINT + "/me",
+        GRAPH_API_ENDPOINT + "/education/me/assignments",# ?$filter=status eq 'assigned'    # ?$top=5
         headers={'Authorization': 'Bearer ' + result['access_token']},).json()
     print("Graph API call result: %s" % json.dumps(graph_data, indent=2))
 else:
