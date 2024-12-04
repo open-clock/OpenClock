@@ -7,7 +7,7 @@ import logging
 import os
 
 # App configuration
-CLIENT_ID = "d743be8a-0e6b-4cde-8294-f090040fb7e6"
+CLIENT_ID = "cda7262c-6d80-4c31-adb6-5d9027364fa7"
 SCOPES = ["User.Read", "Mail.Read"]  # Added Mail.Read scope
 GRAPH_API_ENDPOINT = "https://graph.microsoft.com/v1.0"
 
@@ -20,7 +20,7 @@ atexit.register(lambda: open(cache_filename, "w").write(cache.serialize()) if ca
 # Create a preferably long-lived app instance which maintains a token cache.
 app = msal.PublicClientApplication(
     client_id=CLIENT_ID,
-    authority="https://login.microsoftonline.com/common",
+    authority="https://login.microsoftonline.com/076218b1-9f9c-4129-bbb0-337d5a8fe3e3",
     token_cache= cache
 )
 

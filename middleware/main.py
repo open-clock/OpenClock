@@ -10,7 +10,7 @@ import asyncio
 CACHE_PATH = os.path.join(".", "cache.bin")
 
 # MSAL configuration
-CLIENT_ID = "d743be8a-0e6b-4cde-8294-f090040fb7e6"
+CLIENT_ID = "cda7262c-6d80-4c31-adb6-5d9027364fa7"
 SCOPES = ["User.Read", "Mail.Read"]
 GRAPH_API_ENDPOINT = "https://graph.microsoft.com/v1.0"
 
