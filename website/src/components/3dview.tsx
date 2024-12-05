@@ -1,7 +1,7 @@
 import * as THREE from 'three'
-import { useRef, useState, useEffect, Suspense } from 'react'
-import { Canvas, extend, useThree, useFrame } from '@react-three/fiber'
-import { useGLTF, useTexture, Environment, Lightformer, OrbitControls } from '@react-three/drei'
+import { useRef, Suspense } from 'react'
+import { Canvas } from '@react-three/fiber'
+import { useGLTF, Environment, OrbitControls } from '@react-three/drei'
 
 useGLTF.preload('/model.glb')
 //useTexture.preload('')

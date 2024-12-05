@@ -237,7 +237,7 @@ import fallbackImage from "../img/fallback2.png";
           const interval = setInterval(() => {
               element.innerText = finalText
                   .split("")
-                  .map((letter, index) => {
+                  .map((_letter, index) => {
                       if (index < iterations) {
                           return finalText[index];
                       }
