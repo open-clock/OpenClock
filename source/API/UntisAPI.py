@@ -4,8 +4,6 @@ import webuntis.session
 import webuntis
 import datetime
 
-from fastapi_cache.decorator import cache
-
 app = FastAPI()
 
 class credentials(BaseModel):
@@ -15,16 +13,20 @@ class credentials(BaseModel):
     school : str
     useragent : str
 
-cred: credentials
+    def toJSON():
+        pass
 
-@app.get("/foo")
-@cache(expire=60)
-async def get_cache():
-    return 1
-# 127.0.0.1:8000/login-Untis/40146720210116/janw2007/arche.webuntis.com/litec/WebUntis Test
+class cacheClass:
+    creds
+    session
+    timeTable: list
+
+
+global cache
+cache = cacheClass()
 {
  "username": "40146720210116",
-  "password": "janw2007",
+  "password": "187",
   "server": "arche.webuntis.com",
   "school": "litec",
   "useragent": "WebUntis"
@@ -37,13 +39,15 @@ async def login():
     YourWebUntisSession
     """
     try:
-        return webuntis.Session( 
+        global session
+        session = webuntis.Session( 
             username=creds.username,
             password=creds.password,
             server=creds.server,
             school=creds.school,
             useragent=creds.useragent
         ).login()
+        return session
     except webuntis.errors.BadCredentialsError or webuntis.errors.NotLoggedInError:
         return "Not valide credentials"
 
@@ -70,11 +74,10 @@ def canLoginAs(username: str, password: str, server: str, school: str, useragent
 
 
 @app.post("/set-cred")
-@cache(namespace="creds", expire=1)
-async def setCreds(creds: credentials):
-    global cred 
-    cred = creds
-    return cred
+async def setCreds(cred: credentials):
+    global creds 
+    creds = cred
+    return creds
 
 @app.get("/get-Timtable")
 async def getTimeTable(dayRange: int = 1):
@@ -92,7 +95,9 @@ async def getTimeTable(dayRange: int = 1):
         i += 1;
     return retStr
 
-@app.get("/get-creds")
-@cache(namespace="test", expire=10)
-async def getCreds():
-    return
+@app.get("/session")
+def getSession():
+    global session
+    if session is not None:
+        return True
+    return False
