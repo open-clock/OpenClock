@@ -1,0 +1,8 @@
+- Anmeldung mit Microsoft initieren (Da dann URL, Code, usw returnen und irgendwie mitteilen obs erfolgreich war und ob eine anmeldung gestartet wurde (für den display driver))
+- Untis credentials annehmen und rückmelden ob die valide sind
+- Systemmanagement:
+  - WLAN Netzwerke listen (networkmanager API)
+  - WLAN Netzwerke verbinden und disconnecten (networkmanager API)
+  - Config fürs display speichern und ausgeben (an den displaytreiber, sachen wie refresh intervalle, usw)
+- Daten von Teams in einem einstellbaren intervall (Config API, ^ ^) laden, cachen und formatiert bereitstellen (sodass der displaytreiber wenn er abfragt minimalste arbeit hat)
+- Selbiges für untis
