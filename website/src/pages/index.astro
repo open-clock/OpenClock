@@ -166,7 +166,7 @@ import fallbackImage from "../img/fallback2.png";
         </div>
       </div>
     </section>
-        <section class="py-16 bg-secondary/5 dark:bg-dark-secondary/5 rounded-xl">
+    <section class="py-16 bg-secondary/5 dark:bg-dark-secondary/5 rounded-xl">
       <div class="max-w-4xl mx-auto px-4">
         <h2 class="text-3xl font-bold text-center mb-8">Know Your Rights!</h2>
         
@@ -293,8 +293,9 @@ import fallbackImage from "../img/fallback2.png";
   
       // Smooth scroll for the Discover Variants button
       document
-          .querySelector('a[href="#variants"]')
-          ?.addEventListener("click", (e) => {
+      .querySelectorAll('a[href="#variants"]')
+      .forEach(link => {
+          link.addEventListener("click", (e) => {
               e.preventDefault();
               document
                   .querySelector("#variants")
@@ -302,5 +303,6 @@ import fallbackImage from "../img/fallback2.png";
                       behavior: prefersReducedMotion() ? "auto" : "smooth" 
                   });
           });
+      });
   </script>
 </Layout>
