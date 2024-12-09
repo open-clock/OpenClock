@@ -2,19 +2,14 @@
 
 import * as React from "react"
 import {
-  AudioWaveform,
   BookOpen,
   Bot,
-  Frame,
-  Map,
-  PieChart,
+  Clock,
   Settings2,
   SquareTerminal,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
-import { NavProjects } from "@/components/nav-projects"
-import { NavUser } from "@/components/nav-user"
 import { ThemeSwitcher } from "@/components/theme-switcher"
 import {
   Sidebar,
@@ -27,72 +22,40 @@ import { ClockType } from "@/lib/clocktype"
 
 // This is sample data.
 const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
   navMain: [
     {
-      title: "Playground",
+      title: "Dashboard",
       url: "#",
-      icon: SquareTerminal,
+      icon: Clock,
       isActive: true,
       items: [
         {
-          title: "History",
+          title: "Clockface",
           url: "#",
         },
         {
-          title: "Starred",
+          title: "Widgets",
           url: "#",
-        },
-        {
-          title: "Settings",
-          url: "#",
-        },
+        }
       ],
     },
     {
-      title: "Models",
+      title: "System",
       url: "#",
       icon: Bot,
       items: [
         {
-          title: "Genesis",
+          title: "Updates",
           url: "#",
         },
         {
-          title: "Explorer",
+          title: "Logs",
           url: "#",
         },
         {
-          title: "Quantum",
+          title: "Terminal",
           url: "#",
-        },
-      ],
-    },
-    {
-      title: "Documentation",
-      url: "#",
-      icon: BookOpen,
-      items: [
-        {
-          title: "Introduction",
-          url: "#",
-        },
-        {
-          title: "Get Started",
-          url: "#",
-        },
-        {
-          title: "Tutorials",
-          url: "#",
-        },
-        {
-          title: "Changelog",
-          url: "#",
-        },
+        }
       ],
     },
     {
@@ -105,35 +68,14 @@ const data = {
           url: "#",
         },
         {
-          title: "Team",
+          title: "Accounts",
           url: "#",
         },
         {
-          title: "Billing",
+          title: "Intervals",
           url: "#",
-        },
-        {
-          title: "Limits",
-          url: "#",
-        },
+        }
       ],
-    },
-  ],
-  projects: [
-    {
-      name: "Design Engineering",
-      url: "#",
-      icon: Frame,
-    },
-    {
-      name: "Sales & Marketing",
-      url: "#",
-      icon: PieChart,
-    },
-    {
-      name: "Travel",
-      url: "#",
-      icon: Map,
     },
   ],
 }
@@ -142,14 +84,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <ThemeSwitcher type={ClockType.Mini}/>
+        <ThemeSwitcher type={ClockType.Mini} />
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavProjects projects={data.projects} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          OpenClock {ClockType.Mini}. AGPL V3 Licensed.
+        </p>
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
