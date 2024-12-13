@@ -3,6 +3,15 @@ from fastApi import FastAPI
 import webuntis.session
 import webuntis
 import datetime
+from enum import Enum
+
+class ClockType(Enum):
+    Mini="Mini"
+    XL="XL"
+
+class dummy(BaseModel):
+    model : ClockType = ClockType.Mini
+    setup : bool = True
 
 app = FastAPI()
 {
@@ -80,4 +89,6 @@ async def update()->None:
         setSession()
     setTimeTable()
     
- 
+@app.get("/status")
+async def status()->dummy:
+    return dummy()
