@@ -2,8 +2,27 @@ from pydantic import BaseModel
 from fastApi import FastAPI
 import webuntis.session
 import webuntis
+import json
 import datetime
+from contextlib import asynccontextmanager
 from enum import Enum
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI()
+
+origins = [
+    "http://localhost",
+    "http://localhost:8000",
+    "http://localhost:3000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class ClockType(Enum):
     Mini="Mini"
@@ -13,7 +32,7 @@ class dummy(BaseModel):
     model : ClockType = ClockType.Mini
     setup : bool = True
 
-app = FastAPI()
+
 {
  "username": "40146720210116",
   "password": "187",
@@ -64,8 +83,11 @@ async def setNextEvent(maxDeph = 14)->bool:
 
 @app.post("/set-cred")
 async def setCreds(cred: credentials):
+    json_object = json.dumps(credentials, indent=2)
     global creds 
     creds = cred
+    with open("creds", "w") as outfile:
+        outfile.write(json_object,outfile)
     return creds
 
 @app.get("/get-Timtable")
@@ -80,20 +102,16 @@ def hasSession()->bool:
         return True
     return False
 
-
-
-@app.get("/update")
-async def update()->None:
-    global cache
-    if not hasSession():
-        setSession()
-    setTimeTable()
     
 @app.get("/status")
 async def status()->dummy:
     return dummy()
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global cache
+    if not hasSession():
+        setSession()
+    setTimeTable()
 
-def active():
-    
