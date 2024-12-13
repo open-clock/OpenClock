@@ -92,3 +92,8 @@ async def update()->None:
 @app.get("/status")
 async def status()->dummy:
     return dummy()
+
+
+
+def active():
+    
