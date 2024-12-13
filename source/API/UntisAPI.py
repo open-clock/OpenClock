@@ -5,7 +5,13 @@ import webuntis
 import datetime
 
 app = FastAPI()
-
+{
+ "username": "40146720210116",
+  "password": "187",
+  "server": "arche.webuntis.com",
+  "school": "litec",
+  "useragent": "WebUntis"
+}
 class credentials(BaseModel):
     username : str
     password : str
@@ -45,7 +51,7 @@ async def setNextHoliday()->bool:
     cache.holidays = cache.session.holidays()
     return True
 async def setNextEvent(maxDeph = 14)->bool:
-
+    pass
 
 @app.post("/set-cred")
 async def setCreds(cred: credentials):
