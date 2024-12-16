@@ -19,6 +19,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 import { ClockType } from "@/lib/clocktype"
+import Copyright from "./copyright"
 
 // This is sample data.
 const data = {
@@ -80,19 +81,22 @@ const data = {
   ],
 }
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export function AppSidebar({ 
+  clocktype,
+  ...props 
+}: React.ComponentProps<typeof Sidebar> & {
+  clocktype: ClockType
+}) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <ThemeSwitcher type={ClockType.Mini} />
+        <ThemeSwitcher type={clocktype} />
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
       </SidebarContent>
       <SidebarFooter>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          OpenClock {ClockType.Mini}. AGPL V3 Licensed.
-        </p>
+        <Copyright clocktype={clocktype} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

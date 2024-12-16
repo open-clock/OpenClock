@@ -1,6 +1,7 @@
 "use client"
 import Dashboard from '@/components/dashboard';
 import SetupWizard from '@/components/setupWizard';
+import { StatusResponse } from '@/lib/apitypes';
 import {
   QueryClient,
   QueryClientProvider,
@@ -15,22 +16,22 @@ export default function Home() {
     <QueryClientProvider client={queryClient}>
       <ReactQueryDevtools />
       <main className="">
-        <Example />
+        <App />
       </main>
     </QueryClientProvider>
   );
 }
 
-function Example() {
-  const { isPending, error, data, isFetching } = useQuery({
-    queryKey: ['repoData'],
-    queryFn: async () => {
+function App() {
+  const { isPending, error, data, isFetching } = useQuery<StatusResponse, Error>({
+    queryKey: ['status'],
+    queryFn: async (): Promise<StatusResponse> => {
       const response = await fetch(
-        'https://api.github.com/repos/TanStack/query',
-      )
-      return await response.json()
+        'http://localhost:8000/status',
+      );
+      return await response.json();
     },
-  })
+  });
 
   if (isPending) return (
     <div className="min-h-screen flex items-center justify-center">
@@ -44,11 +45,11 @@ function Example() {
     </div>
   );
 
-  if (data.xyz) return (
-    <SetupWizard />
+  if (!data.setup) return (
+    <SetupWizard clocktype={data.model}/>
   );
 
   return (
-    <Dashboard />
+    <Dashboard clocktype={data.model} />
   )
 }
