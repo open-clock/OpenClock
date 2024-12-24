@@ -1,13 +1,6 @@
 "use client"
 
 import * as React from "react"
-import {
-  BookOpen,
-  Bot,
-  Clock,
-  Settings2,
-  SquareTerminal,
-} from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
 import { ThemeSwitcher } from "@/components/theme-switcher"
@@ -21,66 +14,6 @@ import {
 import { ClockType } from "@/lib/clocktype"
 import Copyright from "./copyright"
 
-// This is sample data.
-const data = {
-  navMain: [
-    {
-      title: "Dashboard",
-      url: "#",
-      icon: Clock,
-      isActive: true,
-      items: [
-        {
-          title: "Clockface",
-          url: "#",
-        },
-        {
-          title: "Widgets",
-          url: "#",
-        }
-      ],
-    },
-    {
-      title: "System",
-      url: "#",
-      icon: Bot,
-      items: [
-        {
-          title: "Updates",
-          url: "#",
-        },
-        {
-          title: "Logs",
-          url: "#",
-        },
-        {
-          title: "Terminal",
-          url: "#",
-        }
-      ],
-    },
-    {
-      title: "Settings",
-      url: "#",
-      icon: Settings2,
-      items: [
-        {
-          title: "General",
-          url: "#",
-        },
-        {
-          title: "Accounts",
-          url: "#",
-        },
-        {
-          title: "Intervals",
-          url: "#",
-        }
-      ],
-    },
-  ],
-}
-
 export function AppSidebar({ 
   clocktype,
   ...props 
@@ -93,7 +26,7 @@ export function AppSidebar({
         <ThemeSwitcher type={clocktype} />
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
+        <NavMain />
       </SidebarContent>
       <SidebarFooter>
         <Copyright clocktype={clocktype} />

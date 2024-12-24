@@ -3,6 +3,7 @@ import { AppSidebar } from "./app-sidebar";
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage } from "./ui/breadcrumb";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "./ui/sidebar";
 import { ClockType } from "@/lib/clocktype";
+import Watchface from "./watchface";
 
 export default function Dashboard({ clocktype } : { clocktype: ClockType }) {
     return (
@@ -15,11 +16,7 @@ export default function Dashboard({ clocktype } : { clocktype: ClockType }) {
                     </div>
                 </header>
                 <div className="flex items-center justify-center p-4 h-full max-h-screen">
-                    <img 
-                        src="https://unsplash.it/800/600" 
-                        alt="" 
-                        className="h-full object-contain"
-                    />
+                    <Watchface/>
                 </div>
             </SidebarInset>
         </SidebarProvider>

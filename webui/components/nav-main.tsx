@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronRight, type LucideIcon } from "lucide-react"
+import { Bot, ChevronRight, Clock, Settings2 } from "lucide-react"
 
 import {
   Collapsible,
@@ -17,54 +17,146 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
 
-export function NavMain({
-  items,
-}: {
-  items: {
-    title: string
-    url: string
-    icon?: LucideIcon
-    isActive?: boolean
-    items?: {
-      title: string
-      url: string
-    }[]
-  }[]
-}) {
+import { Dialog, DialogTrigger } from "./ui/dialog"
+import SettingsDialogContent from "./settings-dialog-content"
+
+export function NavMain() {
   return (
     <SidebarGroup>
       <SidebarMenu>
-        {items.map((item) => (
-          <Collapsible
-            key={item.title}
-            asChild
-            defaultOpen={item.isActive}
-            className="group/collapsible"
-          >
-            <SidebarMenuItem>
-              <CollapsibleTrigger asChild>
-                <SidebarMenuButton tooltip={item.title}>
-                  {item.icon && <item.icon />}
-                  <span>{item.title}</span>
-                  <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                </SidebarMenuButton>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <SidebarMenuSub>
-                  {item.items?.map((subItem) => (
-                    <SidebarMenuSubItem key={subItem.title}>
+        <Collapsible
+          key="Dashboard"
+          asChild
+          defaultOpen={true}
+          className="group/collapsible"
+        >
+          <SidebarMenuItem>
+            <CollapsibleTrigger asChild>
+              <SidebarMenuButton tooltip="Dashboard">
+                <Clock />
+                <span>Dashboard</span>
+                <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+              </SidebarMenuButton>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SidebarMenuSub>
+                <SidebarMenuSubItem key="Clockface">
+                  <SidebarMenuSubButton asChild>
+                    <a href="#">
+                      <span>Clockface</span>
+                    </a>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+                <SidebarMenuSubItem key="Widgets">
+                  <SidebarMenuSubButton asChild>
+                    <a href="#">
+                      <span>Widgets</span>
+                    </a>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+              </SidebarMenuSub>
+            </CollapsibleContent>
+          </SidebarMenuItem>
+        </Collapsible>
+
+        <Collapsible
+          key="System"
+          asChild
+          defaultOpen={false}
+          className="group/collapsible"
+        >
+          <SidebarMenuItem>
+            <CollapsibleTrigger asChild>
+              <SidebarMenuButton tooltip="System">
+                <Bot />
+                <span>System</span>
+                <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+              </SidebarMenuButton>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SidebarMenuSub>
+                <SidebarMenuSubItem key="Updates">
+                  <SidebarMenuSubButton asChild>
+                    <a href="#">
+                      <span>Updates</span>
+                    </a>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+                <SidebarMenuSubItem key="Logs">
+                  <SidebarMenuSubButton asChild>
+                    <a href="#">
+                      <span>Logs</span>
+                    </a>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+                <SidebarMenuSubItem key="Terminal">
+                  <SidebarMenuSubButton asChild>
+                    <a href="#">
+                      <span>Terminal</span>
+                    </a>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+              </SidebarMenuSub>
+            </CollapsibleContent>
+          </SidebarMenuItem>
+        </Collapsible>
+
+        <Collapsible
+          key="Settings"
+          asChild
+          defaultOpen={false}
+          className="group/collapsible"
+        >
+          <SidebarMenuItem>
+            <CollapsibleTrigger asChild>
+              <SidebarMenuButton tooltip="Settings">
+                <Settings2 />
+                <span>Settings</span>
+                <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+              </SidebarMenuButton>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SidebarMenuSub>
+                <SidebarMenuSubItem key="General">
+                  <Dialog>
+                    <DialogTrigger asChild>
                       <SidebarMenuSubButton asChild>
-                        <a href={subItem.url}>
-                          <span>{subItem.title}</span>
+                        <a>
+                          <span>General</span>
                         </a>
                       </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                  ))}
-                </SidebarMenuSub>
-              </CollapsibleContent>
-            </SidebarMenuItem>
-          </Collapsible>
-        ))}
+                    </DialogTrigger>
+                    <SettingsDialogContent defaultTab="general" />
+                  </Dialog>
+                </SidebarMenuSubItem>
+                <SidebarMenuSubItem key="Accounts">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <SidebarMenuSubButton asChild>
+                        <a>
+                          <span>Accounts</span>
+                        </a>
+                      </SidebarMenuSubButton>
+                    </DialogTrigger>
+                    <SettingsDialogContent defaultTab="accounts" />
+                  </Dialog>
+                </SidebarMenuSubItem>
+                <SidebarMenuSubItem key="Intervals">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <SidebarMenuSubButton asChild>
+                        <a>
+                          <span>Intervals</span>
+                        </a>
+                      </SidebarMenuSubButton>
+                    </DialogTrigger>
+                    <SettingsDialogContent defaultTab="intervals" />
+                  </Dialog>
+                </SidebarMenuSubItem>
+              </SidebarMenuSub>
+            </CollapsibleContent>
+          </SidebarMenuItem>
+        </Collapsible>
       </SidebarMenu>
     </SidebarGroup>
   )
