@@ -24,8 +24,7 @@ class credentials(BaseModel):
     server : str
     school : str
     useragent : str
-
-
+    
     def __init__(self):
         self.username : str
         self.password : str
@@ -33,19 +32,12 @@ class credentials(BaseModel):
         self.school : str
         self.useragent : str
 
-
-class cacheClass:
-    creds : credentials
-    session : webuntis.session
-    timeTable: list
-    currentPeriod : webuntis.objects.PeriodObject
-    nextPeriod : webuntis.objects.PeriodObject
-    holidays : list
     
-    def __init__(self):
-        self.creds = credentials
-        self.session = webuntis.session.Session
-        self.timeTable = None
-        self.currentPeriod = []
-        self.nextPeriod = None
-        self.holidays = None
+    def __dict__(self):
+        return {"username":self.username,
+                "password":self.password,
+                "server":self.server,
+                "school":self.school,
+                "useragent":self.useragent}
+
+
