@@ -1,7 +1,7 @@
 from msal import PublicClientApplication
 
 app = PublicClientApplication(
-    "your_client_id",
+    "076218b1-9f9c-4129-bbb0-337d5a8fe3e3",
     authority="https://login.microsoftonline.com/common")
 
 # initialize result variable to hole the token response

@@ -2,7 +2,7 @@ import webuntis
 import datetime
 
 
-DAYRANGE = 1
+DAYRANGE = 10
 
 with webuntis.Session( # Loging into a Session as a Student
     username='40146720210116',
@@ -19,4 +19,4 @@ with webuntis.Session( # Loging into a Session as a Student
             if t.start.day - sortedTimeTable[i-1].start.day >= 1:
                 print("---")
         print(t.studentGroup + ", " + t.start.strftime("%H:%M"), t.end.strftime("%H:%M"))
-        i += 1;
+        i += 1
