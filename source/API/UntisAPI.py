@@ -4,6 +4,7 @@ import webuntis.session
 import webuntis
 import json
 import datetime
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
@@ -17,27 +18,41 @@ DB = {                                                      #stores the data so 
         "nextPeriod" : webuntis.objects.PeriodObject,
         "holidays" : []}
 
+async def update_loop():
+    while True:
+        if not await hasSession():
+            cache_filename = "creds.json"
+            try:
+                with open(cache_filename, "r") as infile:
+                    creds_data = json.load(infile)
+                    DB["creds"] = credentials(**creds_data)
+                print(f"Loaded credentials: {DB['creds']}")
+                
+                with open(cache_filename, "w") as outfile:
+                    json_data = json.dumps(DB["creds"].dict(), indent=2)
+                    outfile.write(json_data)
+                    print("Credentials saved to file")
+                    
+            except json.JSONDecodeError:
+                print("Invalid JSON format in creds.json")
+            except TypeError as e:
+                print(f"Missing fields in creds.json: {e}")
+            except Exception as e:
+                print(f"Unexpected error: {e}")
+        
+        await setSession()
+        await setTimeTable(10)
+        await asyncio.sleep(300)
+
 @asynccontextmanager
-async def lifespan(app: FastAPI):                               #life circle of the app   
-    global DB
-   
-    if not await hasSession():
-        cache_filename = "creds.json"
-        try:
-            with open(cache_filename, "r") as infile:
-                creds_data = json.load(infile)
-                DB["creds"] = credentials(**creds_data)    #loads the creds from the json file
-            with open(cache_filename, "w") as outfile:
-                outfile.write(json.dumps(DB["creds"].dict(), indent=2))
-        except json.JSONDecodeError:
-            print("Invalid JSON format in creds.json")
-        except TypeError as e:
-            print(f"Missing fields in creds.json: {e}")
-        except Exception as e:
-            print(f"Unexpected error: {e}")
-    await setSession()
-    await setTimeTable(10)
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(update_loop())
     yield
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
 
 app = FastAPI(lifespan=lifespan)
 
@@ -86,7 +101,6 @@ async def setTimeTable(dayRange: int)->bool:
         print(f"Fetching timetable from {now} to {now + datetime.timedelta(days=dayRange)}")
         timetable = DB["session"].my_timetable(start=now, end=now + datetime.timedelta(days=dayRange))
         DB["timeTable"] = sorted(timetable, key=lambda x: x.start, reverse=False)
-        print(f"Timetable set successfully: {DB['timeTable']}")
         return True
     except Exception as e:
         print(f"Failed to set timetable: {e}")
@@ -103,7 +117,6 @@ async def setNextEvent(maxDeph = 14)->bool:
 @app.post("/set-cred")
 async def setCreds(cred: credentials):
     global DB 
-    DB["creds"] = cred
     json_object = json.dumps(DB["creds"].dict(), indent=2)
     with open("creds.json", "w") as outfile:
         outfile.write(json_object)
@@ -123,7 +136,7 @@ async def getTimeTable(dayRange: int):
     
     return output
     
-@app.get("/hasSessio")
+@app.get("/has-session")
 async def hasSession()->bool:
     global DB
     try:
