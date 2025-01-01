@@ -22,11 +22,12 @@ async def lifespan(app: FastAPI):                               #life circle of 
     global DB
    
     if not await hasSession():
+        cache_filename = "creds.json"
         try:
-            with open("creds.json", "r") as infile:
+            with open(cache_filename, "r") as infile:
                 creds_data = json.load(infile)
                 DB["creds"] = credentials(**creds_data)    #loads the creds from the json file
-            with open("creds.json", "w") as outfile:
+            with open(cache_filename, "w") as outfile:
                 outfile.write(json.dumps(DB["creds"].dict(), indent=2))
         except json.JSONDecodeError:
             print("Invalid JSON format in creds.json")
