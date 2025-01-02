@@ -13,6 +13,9 @@ import requests
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict
+import subprocess
+from asyncio import create_subprocess_shell, subprocess
+from asyncio.exceptions import TimeoutError
 
 # Combined DB dictionary
 global DB
@@ -167,7 +170,7 @@ app.add_middleware(
 )
 
 # Microsoft API endpoints
-@app.get("/ms/accounts")
+@app.get("/ms/accounts", tags=["Microsoft"])
 async def get_ms_accounts() -> List[Dict]:
     """Get all Microsoft accounts from cache"""
     global DB
@@ -177,7 +180,7 @@ async def get_ms_accounts() -> List[Dict]:
         return accounts
     return []
 
-@app.post("/ms/token/acquire")
+@app.post("/ms/token/acquire", tags=["Microsoft"])
 async def acquire_token(account_id: str):
     """Acquire Microsoft token for specific account"""
     global DB
@@ -194,7 +197,7 @@ async def acquire_token(account_id: str):
         return await initiate_device_flow()
 
 # Untis API endpoints
-@app.post("/untis/set-cred")
+@app.post("/untis/set-cred", tags=["Untis"])
 async def set_untis_creds(cred: credentials):
     global DB 
     DB["untis_creds"] = cred
@@ -203,7 +206,7 @@ async def set_untis_creds(cred: credentials):
         outfile.write(json_object)
     return DB["untis_creds"]
 
-@app.get("/untis/timetable")
+@app.get("/untis/timetable", tags=["Untis"])
 async def get_timetable(dayRange: int = 1):
     global DB
     output: dict = {}
@@ -214,22 +217,55 @@ async def get_timetable(dayRange: int = 1):
     return output
 
 # Combined status endpoint
-@app.get("/status")
-async def get_status() -> dict:
+@app.get("/status", tags=["System"])
+async def get_status() -> model:
     global DB
-    return {
-        "microsoft": {
-            "has_accounts": len(DB["ms_app"].get_accounts()) > 0 if DB["ms_app"] else False,
-            "has_token": DB["ms_result"] is not None,
-            "has_active_flow": DB["ms_flow"] is not None
-        },
-        "untis": {
-            "creds": DB["untis_creds"].dict() if DB["untis_creds"] else None,
-            "session": "active" if DB["untis_session"] else "inactive",
-            "timeTable": len(DB["timeTable"]),
-            "holidays": len(DB["holidays"])
+    return model(setup=True, model=ClockType.Mini)
+
+# Terminal endpoints
+@app.post("/run", tags=["System"])
+async def run_terminal(command: str) -> dict:
+    try:
+        process = await create_subprocess_shell(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        
+        stdout, stderr = await process.communicate()
+        output = stdout.decode() if stdout else ''
+        error = stderr.decode() if stderr else ''
+
+        return {
+            "status": "completed",
+            "output": output,
+            "error": error
         }
-    }
+            
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e)
+        }
+    
+# System management endpoints
+@app.get("/shutdown", tags=["System"])
+async def shutdown_system() -> str:
+    try:
+        os.system("poweroff")
+        return "Shutting down..."
+    except Exception as e:
+        return f"Error: {e}"
+    
+@app.get("/reboot", tags=["System"])
+async def reboot_system() -> str:
+    try:
+        os.system("reboot")
+        return "Rebooting..."
+    except Exception as e:
+        return f"Error: {e}"
+
+
 
 
 
