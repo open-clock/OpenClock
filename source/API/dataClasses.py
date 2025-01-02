@@ -25,3 +25,7 @@ class credentials(BaseModel):
 
 class command(BaseModel):
     command: str
+
+class NetworkCredentials(BaseModel):
+    ssid: str
+    password: str
