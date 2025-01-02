@@ -2,6 +2,7 @@
 import Dashboard from '@/components/dashboard';
 import SetupWizard from '@/components/setupWizard';
 import { StatusResponse } from '@/lib/apitypes';
+import { API_ENDPOINT } from '@/lib/constants';
 import {
   QueryClient,
   QueryClientProvider,
@@ -27,7 +28,7 @@ function App() {
     queryKey: ['status'],
     queryFn: async (): Promise<StatusResponse> => {
       const response = await fetch(
-        'http://localhost:8000/status',
+        `${API_ENDPOINT}/status`,
       );
       return await response.json();
     },
