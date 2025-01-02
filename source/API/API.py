@@ -224,10 +224,10 @@ async def get_status() -> model:
 
 # Terminal endpoints
 @app.post("/run", tags=["System"])
-async def run_terminal(command: str) -> dict:
+async def run_terminal(command: command) -> dict:
     try:
         process = await create_subprocess_shell(
-            command,
+            command.command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )

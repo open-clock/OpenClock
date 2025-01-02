@@ -22,3 +22,6 @@ class credentials(BaseModel):
     server: str
     school: str
     useragent: str
+
+class command(BaseModel):
+    command: str
