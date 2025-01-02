@@ -20,46 +20,54 @@ from dbus.mainloop.glib import DBusGMainLoop
 import dbus
 import time
 
-# Combined DB dictionary
-global DB
+global DB, SECURE_DB
+
+# Non-sensitive data
 DB = {
-    # Microsoft API settings
+    # Microsoft API runtime data
     "ms_result": None,
     "ms_accounts": None,
     "ms_flow": None,
-    "client_id": "cda7262c-6d80-4c31-adb6-5d9027364fa7",
-    "scopes": ["User.Read", "Mail.Read"],
-    "graph_endpoint": "https://graph.microsoft.com/v1.0",
-    "cache_path": os.path.join(".", "cache.bin"),
-    "token_cache": msal.SerializableTokenCache(),
     "ms_app": None,
-    "authority": "https://login.microsoftonline.com/076218b1-9f9c-4129-bbb0-337d5a8fe3e3",
+    "token_cache": msal.SerializableTokenCache(),
     
-    # Untis API settings
-    "untis_creds": None,
+    # Untis API runtime data
     "untis_session": None,
     "timeTable": [],
     "currentPeriod": webuntis.objects.PeriodObject,
     "nextPeriod": webuntis.objects.PeriodObject,
     "holidays": [],
     
-    # DBus settings
+    # DBus runtime data
     "bus": None,
     "wifi_device": None
+}
+
+# Sensitive data
+SECURE_DB = {
+    # Microsoft API credentials
+    "client_id": "cda7262c-6d80-4c31-adb6-5d9027364fa7",
+    "scopes": ["User.Read", "Mail.Read"],
+    "graph_endpoint": "https://graph.microsoft.com/v1.0",
+    "cache_path": os.path.join(".", "cache.bin"),
+    "authority": "https://login.microsoftonline.com/076218b1-9f9c-4129-bbb0-337d5a8fe3e3",
+    
+    # Untis API credentials
+    "untis_creds": None,
 }
 
 # Helper Functions from UntisAPI
 async def set_untis_session() -> bool:
     try:
-        global DB
-        print(f"Attempting to connect to server: {DB['untis_creds'].server}")
+        global DB, SECURE_DB
+        print(f"Attempting to connect to server: {SECURE_DB['untis_creds'].server}")
         
         DB["untis_session"] = webuntis.Session(
-            username=DB["untis_creds"].username,
-            password=DB["untis_creds"].password,
-            server=DB["untis_creds"].server,
-            school=DB["untis_creds"].school,
-            useragent=DB["untis_creds"].useragent
+            username=SECURE_DB["untis_creds"].username,
+            password=SECURE_DB["untis_creds"].password,
+            server=SECURE_DB["untis_creds"].server,
+            school=SECURE_DB["untis_creds"].school,
+            useragent=SECURE_DB["untis_creds"].useragent
         )
         DB["untis_session"].login()
         print("Untis session created and logged in successfully")
@@ -94,7 +102,7 @@ async def has_untis_session() -> bool:
 # Helper Functions from MicrosoftAPI
 async def initiate_device_flow():
     global DB
-    flow = DB["ms_app"].initiate_device_flow(scopes=DB["scopes"])
+    flow = DB["ms_app"].initiate_device_flow(scopes=SECURE_DB["scopes"])
     if "user_code" not in flow:
         raise HTTPException(status_code=500, 
             detail=f"Failed to create device flow: {json.dumps(flow, indent=2)}")
@@ -110,7 +118,7 @@ async def ms_refresh_token_loop():
                 if accounts:
                     chosen = accounts[0]
                     result = DB["ms_app"].acquire_token_silent(
-                        scopes=DB["scopes"],
+                        scopes=SECURE_DB["scopes"],
                         account=chosen
                     )
                     if result:
@@ -126,8 +134,8 @@ async def untis_update_loop():
             try:
                 with open("creds.json", "r") as infile:
                     creds_data = json.load(infile)
-                    DB["untis_creds"] = credentials(**creds_data)
-                print(f"Loaded Untis credentials: {DB['untis_creds']}")
+                    SECURE_DB["untis_creds"] = credentials(**creds_data)
+                print(f"Loaded Untis credentials: {SECURE_DB['untis_creds']}")
             except Exception as e:
                 print(f"Untis credentials error: {e}")
         
@@ -139,16 +147,16 @@ async def untis_update_loop():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Microsoft API initialization
-    if os.path.exists(DB["cache_path"]):
-        DB["token_cache"].deserialize(open(DB["cache_path"], "r").read())
+    if os.path.exists(SECURE_DB["cache_path"]):
+        DB["token_cache"].deserialize(open(SECURE_DB["cache_path"], "r").read())
     
     atexit.register(lambda: 
-        open(DB["cache_path"], "w").write(DB["token_cache"].serialize())
+        open(SECURE_DB["cache_path"], "w").write(DB["token_cache"].serialize())
     )
     
     DB["ms_app"] = msal.PublicClientApplication(
-        DB["client_id"],
-        authority=DB["authority"],
+        SECURE_DB["client_id"],
+        authority=SECURE_DB["authority"],
         token_cache=DB["token_cache"]
     )
     
@@ -204,7 +212,7 @@ async def acquire_token(account_id: str):
     if not chosen:
         raise HTTPException(status_code=404, detail="Account not found")
     
-    result = DB["ms_app"].acquire_token_silent(scopes=DB["scopes"], account=chosen)
+    result = DB["ms_app"].acquire_token_silent(scopes=SECURE_DB["scopes"], account=chosen)
     if result:
         return result
     else:
@@ -213,12 +221,12 @@ async def acquire_token(account_id: str):
 # Untis API endpoints
 @app.post("/untis/set-cred", tags=["Untis"])
 async def set_untis_creds(cred: credentials):
-    global DB 
-    DB["untis_creds"] = cred
-    json_object = json.dumps(DB["untis_creds"].dict(), indent=2)
+    global SECURE_DB 
+    SECURE_DB["untis_creds"] = cred
+    json_object = json.dumps(SECURE_DB["untis_creds"].dict(), indent=2)
     with open("creds.json", "w") as outfile:
         outfile.write(json_object)
-    return DB["untis_creds"]
+    return SECURE_DB["untis_creds"]
 
 @app.get("/untis/timetable", tags=["Untis"])
 async def get_timetable(dayRange: int = 1):
@@ -282,16 +290,16 @@ async def reboot_system() -> str:
 #Untis api help funcs 
 async def setSession()->bool:
     try:
-        global DB
+        global DB, SECURE_DB
         
-        print(f"Attempting to connect to server: {DB['creds'].server}")
+        print(f"Attempting to connect to server: {SECURE_DB['creds'].server}")
         
         DB["session"] = webuntis.Session( 
-            username=DB["creds"].username,
-            password=DB["creds"].password,
-            server=DB["creds"].server,
-            school=DB["creds"].school,
-            useragent=DB["creds"].useragent
+            username=SECURE_DB["creds"].username,
+            password=SECURE_DB["creds"].password,
+            server=SECURE_DB["creds"].server,
+            school=SECURE_DB["creds"].school,
+            useragent=SECURE_DB["creds"].useragent
         )
         DB["session"].login()
         print("Session created and logged in successfully")
@@ -402,3 +410,10 @@ async def connect_to_network(credentials: NetworkCredentials):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+    def get_relative_path(filename: str) -> str:
+        """Get path relative to this file's directory"""
+        return os.path.join(os.path.dirname(__file__), filename)
+
+
+print(get_relative_path("creds.json"))
