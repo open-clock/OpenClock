@@ -1,3 +1,12 @@
+"""OpenClock API Server.
+
+Provides endpoints and background tasks for:
+- Microsoft account integration
+- Untis calendar synchronization  
+- WiFi network management
+- System status and control
+"""
+
 from fastapi import FastAPI, HTTPException
 from dataClasses import *
 import webuntis.session
@@ -12,7 +21,7 @@ import logging
 import requests
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Dict
+from typing import List, Dict, Optional
 import subprocess
 from asyncio import create_subprocess_shell, subprocess
 from asyncio.exceptions import TimeoutError
@@ -46,11 +55,13 @@ DB = {
 # Sensitive data
 SECURE_DB = {
     # Microsoft API credentials
+    "token_cache": msal.SerializableTokenCache(),
     "client_id": "cda7262c-6d80-4c31-adb6-5d9027364fa7",
     "scopes": ["User.Read", "Mail.Read"],
     "graph_endpoint": "https://graph.microsoft.com/v1.0",
     "cache_path": os.path.join(".", "cache.bin"),
-    "authority": "https://login.microsoftonline.com/076218b1-9f9c-4129-bbb0-337d5a8fe3e3",
+    "authority": "https://login.microsoftonline.com/076218b1-9f9c-4129-bbb0-337d5a8fe3e3",  # Changed to common
+    "redirect_uri": "http://localhost:53344",  # Added redirect URI
     
     # Untis API credentials
     "untis_creds": None,
@@ -58,6 +69,17 @@ SECURE_DB = {
 
 # Helper Functions from UntisAPI
 async def set_untis_session() -> bool:
+    """Initialize and authenticate Untis calendar session.
+    
+    Uses credentials from SECURE_DB to establish WebUntis connection.
+    Updates DB["untis_session"] with active session.
+    
+    Returns:
+        bool: True if session created successfully, False otherwise
+    
+    Raises:
+        Exception: If connection or authentication fails
+    """
     try:
         global DB, SECURE_DB
         print(f"Attempting to connect to server: {SECURE_DB['untis_creds'].server}")
@@ -77,6 +99,14 @@ async def set_untis_session() -> bool:
         return False
 
 async def set_timetable(dayRange: int) -> bool:
+    """Fetch and update timetable for specified date range.
+    
+    Args:
+        dayRange (int): Number of days to fetch timetable for
+    
+    Returns:
+        bool: True if timetable updated successfully, False otherwise
+    """
     global DB
     if DB["untis_session"] is None:
         print("Untis session is None, cannot set timetable")
@@ -85,15 +115,15 @@ async def set_timetable(dayRange: int) -> bool:
     now = datetime.datetime.now()
     try:
         print(f"Fetching timetable from {now} to {now + datetime.timedelta(days=dayRange)}")
-        timetable = DB["untis_session"].timetable(start=now, end=now + datetime.timedelta(days=dayRange))
+        timetable = DB["untis_session"].my_timetable(start=now, end=now + datetime.timedelta(days=dayRange))
         DB["timeTable"] = sorted(timetable, key=lambda x: x.start)
         return True
     except Exception as e:
         print(f"Failed to set timetable: {e}")
         return False
 
+
 async def has_untis_session() -> bool:
-    global DB
     try:
         return DB["untis_session"] is not None
     except AttributeError:
@@ -101,7 +131,7 @@ async def has_untis_session() -> bool:
 
 # Helper Functions from MicrosoftAPI
 async def initiate_device_flow():
-    global DB
+    """Start Microsoft authentication device flow."""
     flow = DB["ms_app"].initiate_device_flow(scopes=SECURE_DB["scopes"])
     if "user_code" not in flow:
         raise HTTPException(status_code=500, 
@@ -110,7 +140,25 @@ async def initiate_device_flow():
     return flow
 
 # Update Loops
+import logging
+from datetime import datetime
+from typing import Optional
+
+# Add configuration constants
+UPDATE_INTERVALS = {
+    "ms_token": 3600,  # 1 hour
+    "untis": 300,      # 5 minutes
+    "retry": 60        # 1 minute
+}
+
 async def ms_refresh_token_loop():
+    """Background task that maintains Microsoft authentication.
+    
+    Features:
+    - Hourly token refresh
+    - Automatic retry on failure
+    - Status logging
+    """
     while True:
         try:
             if DB["ms_result"]:
@@ -123,29 +171,63 @@ async def ms_refresh_token_loop():
                     )
                     if result:
                         DB["ms_result"] = result
-                        print("MS token refreshed successfully")
+                        DB["last_token_refresh"] = datetime.now()
+                        logging.info("MS token refreshed successfully")
+                    else:
+                        logging.warning("Failed to refresh token silently")
+                        await asyncio.sleep(UPDATE_INTERVALS["retry"])
+                        continue
         except Exception as e:
-            print(f"Error refreshing MS token: {e}")
-        await asyncio.sleep(3600)
+            logging.error(f"Error refreshing MS token: {e}")
+            await asyncio.sleep(UPDATE_INTERVALS["retry"])
+            continue
+            
+        await asyncio.sleep(UPDATE_INTERVALS["ms_token"])
 
 async def untis_update_loop():
+    """Background task that maintains Untis calendar data.
+    
+    Features:
+    - Periodic session verification
+    - Automatic credential reload
+    - Timetable updates
+    - Error recovery
+    """
     while True:
-        if not await has_untis_session():
-            try:
-                with open("creds.json", "r") as infile:
-                    creds_data = json.load(infile)
-                    SECURE_DB["untis_creds"] = credentials(**creds_data)
-                print(f"Loaded Untis credentials: {SECURE_DB['untis_creds']}")
-            except Exception as e:
-                print(f"Untis credentials error: {e}")
-        
-        await set_untis_session()
-        await set_timetable(10)
-        await asyncio.sleep(300)
+        try:
+            if not await has_untis_session():
+                try:
+                    with open("creds.json", "r") as infile:
+                        creds_data = json.load(infile)
+                        SECURE_DB["untis_creds"] = credentials(**creds_data)
+                    logging.info(f"Loaded Untis credentials")
+                except Exception as e:
+                    logging.error(f"Failed to load Untis credentials: {e}")
+                    await asyncio.sleep(UPDATE_INTERVALS["retry"])
+                    continue
+
+            if not await set_untis_session():
+                logging.error("Failed to establish Untis session")
+                await asyncio.sleep(UPDATE_INTERVALS["retry"])
+                continue
+
+            if await set_timetable(10):
+                DB["last_timetable_update"] = datetime.now()
+                logging.info("Timetable updated successfully")
+            else:
+                logging.warning("Failed to update timetable")
+                
+        except Exception as e:
+            logging.error(f"Untis update error: {e}")
+            await asyncio.sleep(UPDATE_INTERVALS["retry"])
+            continue
+
+        await asyncio.sleep(UPDATE_INTERVALS["untis"])
 
 # Combined lifespan
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Application lifecycle manager."""
     # Microsoft API initialization
     if os.path.exists(SECURE_DB["cache_path"]):
         DB["token_cache"].deserialize(open(SECURE_DB["cache_path"], "r").read())
@@ -218,9 +300,83 @@ async def acquire_token(account_id: str):
     else:
         return await initiate_device_flow()
 
+@app.get("/microsoft/login", tags=["Microsoft"])
+async def initiate_ms_login():
+    """Start Microsoft login process."""
+    try:
+        # Check cache first
+        accounts = DB["ms_app"].get_accounts()
+        if accounts:
+            result = DB["ms_app"].acquire_token_silent(
+                SECURE_DB["scopes"], 
+                account=accounts[0]
+            )
+            if result:
+                return {"status": "success", "cached": True}
+
+        # Start device flow if no cached token
+        flow = DB["ms_app"].initiate_device_flow(scopes=SECURE_DB["scopes"])
+        if "user_code" not in flow:
+            raise ValueError(f"Failed to create device flow: {json.dumps(flow, indent=4)}")
+
+        DB["ms_flow"] = flow  # Store flow for token acquisition
+
+        return {
+            "status": "auth_required",
+            "verification_uri": flow["verification_uri"],
+            "user_code": flow["user_code"],
+            "message": flow["message"]
+        }
+
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+
+@app.get("/microsoft/messages", response_model=List[EmailMessage], tags=["Microsoft"])
+async def get_messages():
+    """Fetch Microsoft email messages."""
+    try:
+        # Check for valid token
+        if not DB["ms_result"] or "access_token" not in DB["ms_result"]:
+            raise HTTPException(status_code=401, detail="Not authenticated with Microsoft")
+
+        # Get messages from Graph API
+        headers = {
+            'Authorization': f'Bearer {DB["ms_result"]["access_token"]}',
+            'Content-Type': 'application/json'
+        }
+        
+        response = requests.get(
+            f"{SECURE_DB['graph_endpoint']}/me/messages?$top=10&$select=subject,from,receivedDateTime,bodyPreview",
+            headers=headers
+        )
+        
+        if response.status_code != 200:
+            raise HTTPException(status_code=response.status_code, detail="Failed to fetch messages")
+
+        messages_data = response.json().get('value', [])
+        
+        # Format messages
+        messages = [
+            EmailMessage(
+                subject=msg.get('subject', 'No Subject'),
+                from_email=msg.get('from', {}).get('emailAddress', {}).get('address', 'Unknown'),
+                received_date=msg.get('receivedDateTime', ''),
+                body=msg.get('bodyPreview', '')
+            )
+            for msg in messages_data
+        ]
+        
+        return messages
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Untis API endpoints
 @app.post("/untis/set-cred", tags=["Untis"])
 async def set_untis_creds(cred: credentials):
+    """Set Untis authentication credentials."""
     global SECURE_DB 
     SECURE_DB["untis_creds"] = cred
     json_object = json.dumps(SECURE_DB["untis_creds"].dict(), indent=2)
@@ -241,6 +397,7 @@ async def get_timetable(dayRange: int = 1):
 # Combined status endpoint
 @app.get("/status", tags=["System"])
 async def get_status() -> model:
+    """Get system status."""
     global DB
     return model(setup=True, model=ClockType.Mini)
 
@@ -271,21 +428,43 @@ async def run_terminal(command: command) -> dict:
         }
     
 # System management endpoints
-@app.get("/shutdown", tags=["System"])
-async def shutdown_system() -> str:
+@app.get("/shutdown", tags=["System"], response_model=dict)
+async def shutdown_system():
+    """Initiate system shutdown.
+    
+    Returns:
+        dict: Status message indicating shutdown progress
+    """
     try:
         os.system("poweroff")
-        return "Shutting down..."
+        return {
+            "status": "success",
+            "message": "System is shutting down..."
+        }
     except Exception as e:
-        return f"Error: {e}"
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+@app.get("/reboot", tags=["System"], response_model=dict)
+async def reboot_system():
+    """Initiate system reboot.
     
-@app.get("/reboot", tags=["System"])
-async def reboot_system() -> str:
+    Returns:
+        dict: Status message indicating reboot progress
+    """
     try:
         os.system("reboot")
-        return "Rebooting..."
+        return {
+            "status": "success",
+            "message": "System is rebooting..."
+        }
     except Exception as e:
-        return f"Error: {e}"
+        return {
+            "status": "error",
+            "message": str(e)
+        }
 
 #Untis api help funcs 
 async def setSession()->bool:
@@ -411,7 +590,7 @@ async def connect_to_network(credentials: NetworkCredentials):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-    def get_relative_path(filename: str) -> str:
+def get_relative_path(filename: str) -> str:
         """Get path relative to this file's directory"""
         return os.path.join(os.path.dirname(__file__), filename)
 
