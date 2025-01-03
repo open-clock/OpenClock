@@ -97,32 +97,26 @@ async def set_untis_session() -> bool:
     except Exception as e:
         print(f"Failed to create or login Untis session: {e}")
         return False
+        
 
-async def set_timetable(dayRange: int) -> bool:
-    """Fetch and update timetable for specified date range.
-    
-    Args:
-        dayRange (int): Number of days to fetch timetable for
-    
-    Returns:
-        bool: True if timetable updated successfully, False otherwise
-    """
+async def set_timetable(dayRange: int)->bool:
     global DB
-    if DB["untis_session"] is None:
-        print("Untis session is None, cannot set timetable")
+
+    if DB["session"] is None:
+        print("Session is None, cannot set timetable")
         return False
 
-    now = datetime.datetime.now()
+    now: datetime.date = datetime.now()
+  
     try:
         print(f"Fetching timetable from {now} to {now + datetime.timedelta(days=dayRange)}")
-        timetable = DB["untis_session"].my_timetable(start=now, end=now + datetime.timedelta(days=dayRange))
-        DB["timeTable"] = sorted(timetable, key=lambda x: x.start)
+        timetable = DB["session"].my_timetable(start=now, end=now + datetime.timedelta(days=dayRange))
+        DB["timeTable"] = sorted(timetable, key=lambda x: x.start, reverse=False)
         return True
     except Exception as e:
         print(f"Failed to set timetable: {e}")
         return False
-
-
+    
 async def has_untis_session() -> bool:
     try:
         return DB["untis_session"] is not None
@@ -591,8 +585,8 @@ async def connect_to_network(credentials: NetworkCredentials):
         raise HTTPException(status_code=500, detail=str(e))
     
 def get_relative_path(filename: str) -> str:
-        """Get path relative to this file's directory"""
-        return os.path.join(os.path.dirname(__file__), filename)
+    """Get path relative to this file's directory."""
+    return os.path.join(os.path.dirname(__file__), filename)
 
 
 print(get_relative_path("creds.json"))
