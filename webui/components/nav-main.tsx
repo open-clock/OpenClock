@@ -19,6 +19,7 @@ import {
 
 import { Dialog, DialogTrigger } from "./ui/dialog"
 import SettingsDialogContent from "./settings-dialog-content"
+import TerminalDialogContent from "./terminal"
 
 export function NavMain() {
   return (
@@ -90,11 +91,16 @@ export function NavMain() {
                   </SidebarMenuSubButton>
                 </SidebarMenuSubItem>
                 <SidebarMenuSubItem key="Terminal">
-                  <SidebarMenuSubButton asChild>
-                    <a href="#">
-                      <span>Terminal</span>
-                    </a>
-                  </SidebarMenuSubButton>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <SidebarMenuSubButton asChild>
+                        <a>
+                          <span>Terminal</span>
+                        </a>
+                      </SidebarMenuSubButton>
+                    </DialogTrigger>
+                    <TerminalDialogContent/>
+                  </Dialog>
                 </SidebarMenuSubItem>
               </SidebarMenuSub>
             </CollapsibleContent>
