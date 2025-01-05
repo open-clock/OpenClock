@@ -9,22 +9,15 @@ import {
     DialogFooter,
 } from "../ui/dialog";
 import { Input } from "../ui/input";
-
-const Networks = [
-    { ssid: "MyNetwork", strength: 4, connected: false },
-    { ssid: "OtherNetwork", strength: 2, connected: true },
-    { ssid: "OpenNetwork", strength: 1, connected: false },
-];
-
-async function connectToWifi(ssid: string, password: string) {
-    // Simulate a connection attempt
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    return true;
-}
+import { ConnectNetwork, Network } from "@/lib/apitypes";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { API_ENDPOINT } from "@/lib/constants";
+import { Skeleton } from "../ui/skeleton";
+import { toast } from "sonner"
 
 function NetworkItem({ network, onSelect }: {
-    network: typeof Networks[0],
-    onSelect: (network: typeof Networks[0]) => void
+    network: Network,
+    onSelect: (network: Network) => void
 }) {
     const getWifiIcon = () => {
         const size = 20;
@@ -46,12 +39,71 @@ function NetworkItem({ network, onSelect }: {
     );
 }
 
+function SkelNetItem() {
+    return (
+        <div
+            className="flex items-center justify-between p-3 border rounded-lg mb-2 hover:bg-light-secondary hover:dark:bg-dark-secondary cursor-pointer"
+        >
+            <div className="flex items-center gap-3">
+                <Skeleton className="h-5 w-5" />
+                <Skeleton className="h-5 w-20" />
+            </div>
+        </div>
+    );
+}
+
 export default function WifiPage() {
-    const [selectedNetwork, setSelectedNetwork] = useState<typeof Networks[0] | null>(null);
+    const [selectedNetwork, setSelectedNetwork] = useState<Network | null>(null);
     const [password, setPassword] = useState("");
     const [open, setOpen] = useState(false);
 
-    const handleNetworkSelect = (network: typeof Networks[0]) => {
+    const { isPending, error, data, isFetching } = useQuery<Network[], Error>({
+        queryKey: ['network/access-points'],
+        queryFn: async (): Promise<Network[]> => {
+            const response = await fetch(
+                `${API_ENDPOINT}/network/access-points`,
+            );
+            return await response.json();
+        },
+    });
+
+    const connectWifi = useMutation({
+        mutationFn: async (network: ConnectNetwork) => {
+            const res = await fetch(`${API_ENDPOINT}/network/connect`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(network),
+            })
+            return res.json() as Promise<{ status: string, message: string }>
+        },
+    })
+
+    if (isPending) return (
+        <div>
+            <h1 className="text-2xl font-semibold mb-4">Connect to Wi-Fi</h1>
+
+            <p className="mb-4">
+                Connect to a Wi-Fi network to enable over-the-air updates and other features.
+            </p>
+
+            <div className="space-y-2 mb-6">
+                <SkelNetItem />
+                <SkelNetItem />
+                <SkelNetItem />
+                <SkelNetItem />
+                <SkelNetItem />
+                <SkelNetItem />
+            </div>
+        </div>
+    );
+
+    if (error) return (
+        <div className="min-h-screen flex items-center justify-center">
+            <h1 className="text-center text-2xl">An error has occurred: {error.message}</h1>
+        </div>
+    );
+
+    const handleNetworkSelect = (network: Network) => {
         setSelectedNetwork(network);
         setOpen(true);
         setPassword("");
@@ -60,15 +112,21 @@ export default function WifiPage() {
     const handleConnect = async () => {
         if (!selectedNetwork) return;
 
-        const success = await connectToWifi(selectedNetwork.ssid, password);
-        if (success) {
-            Networks.forEach(n => {
+        const response = await connectWifi.mutateAsync({
+            ssid: selectedNetwork.ssid,
+            password,
+        });
+        if (response.status) {
+            data.forEach(n => {
                 if (n.ssid === selectedNetwork.ssid) {
                     n.connected = true;
                 } else {
                     n.connected = false;
                 }
             });
+            toast.success("Connected to Wi-Fi network");
+        } else {
+            toast.error("Failed to connect to Wi-Fi network");
         }
         setOpen(false);
     };
@@ -82,9 +140,9 @@ export default function WifiPage() {
             </p>
 
             <div className="space-y-2 mb-6">
-                {Networks.map((network) => (
+                {data.map((network) => (
                     <NetworkItem
-                        key={network.ssid}
+                        key={network.ssid + network.strength}
                         network={network}
                         onSelect={handleNetworkSelect}
                     />
