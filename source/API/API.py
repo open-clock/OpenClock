@@ -61,7 +61,6 @@ SECURE_DB = {
     "graph_endpoint": "https://graph.microsoft.com/v1.0",
     "cache_path": os.path.join(".", "cache.bin"),
     "authority": "https://login.microsoftonline.com/076218b1-9f9c-4129-bbb0-337d5a8fe3e3",  # Changed to common
-    "redirect_uri": "http://localhost:53344",  # Added redirect URI
     
     # Untis API credentials
     "untis_creds": None,
