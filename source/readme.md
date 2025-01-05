@@ -30,7 +30,7 @@ with webuntis.Session(
             if t.start.day - sortedTimeTable[i-1].start.day >= 1:
                 print("---")
         print(t.studentGroup + ", " + t.start.strftime("%H:%M"), t.end.strftime("%H:%M"))
-        i += 1;
+        i += 1
 
 
 
