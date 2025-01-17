@@ -3,6 +3,10 @@ from dbus.mainloop.glib import DBusGMainLoop
 import time
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+import socket
+import asyncio
+import random
+from typing import Optional
 
 class NetworkCredentials(BaseModel):
     ssid: str
@@ -112,4 +116,4 @@ async def connect_to_network(credentials: NetworkCredentials):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
+    
