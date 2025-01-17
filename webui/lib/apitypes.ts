@@ -15,6 +15,7 @@ export interface Network {
     ssid: string;
     strength: number;
     connected: boolean;
+    id: string;
 }
 
 export interface ConnectNetwork {

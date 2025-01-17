@@ -118,7 +118,7 @@ export default function WifiPage() {
         });
         if (response.status) {
             data.forEach(n => {
-                if (n.ssid === selectedNetwork.ssid) {
+                if (n.id === selectedNetwork.id) {
                     n.connected = true;
                 } else {
                     n.connected = false;
@@ -142,7 +142,7 @@ export default function WifiPage() {
             <div className="space-y-2 mb-6">
                 {data.map((network) => (
                     <NetworkItem
-                        key={network.ssid + network.strength}
+                        key={network.id}
                         network={network}
                         onSelect={handleNetworkSelect}
                     />
