@@ -6,7 +6,6 @@ Provides endpoints and background tasks for:
 - WiFi network management
 - System status and control
 """
-
 from fastapi import FastAPI, HTTPException
 from dataClasses import *
 import webuntis.session
@@ -21,7 +20,7 @@ import logging
 import requests
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Dict, Optional
+from typing import List, Dict
 import subprocess
 from asyncio import create_subprocess_shell, subprocess
 from asyncio.exceptions import TimeoutError
@@ -135,8 +134,7 @@ async def set_timetable(dayRange: int = 10) -> bool:
         print("Session is None, cannot set timetable")
         return False
 
-    now: datetime.date = datetime.now()
-  
+    now: datetime.date = datetime.datetime.now()
     try:
         print(f"Fetching timetable from {now} to {now + datetime.timedelta(days=dayRange)}")
         timetable = DB["untis_session"].my_timetable(start=now, end=now + datetime.timedelta(days=dayRange))
@@ -181,9 +179,7 @@ async def initiate_device_flow():
     return flow
 
 # Update Loops
-import logging
-from datetime import datetime
-from typing import Optional
+
 
 # Add configuration constants
 UPDATE_INTERVALS = {
