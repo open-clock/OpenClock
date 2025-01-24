@@ -6,7 +6,6 @@ Provides endpoints and background tasks for:
 - WiFi network management
 - System status and control
 """
-
 from fastapi import FastAPI, HTTPException
 from dataClasses import *
 import webuntis.session
@@ -21,7 +20,7 @@ import logging
 import requests
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Dict, Optional
+from typing import List, Dict
 import subprocess
 from asyncio import create_subprocess_shell, subprocess
 from asyncio.exceptions import TimeoutError
@@ -42,6 +41,7 @@ DB = {
     
     # Untis API runtime data
     "untis_session": None,
+    "untis_state": "disconnected",
     "timeTable": [],
     "currentPeriod": webuntis.objects.PeriodObject,
     "nextPeriod": webuntis.objects.PeriodObject,
@@ -66,46 +66,92 @@ SECURE_DB = {
     "untis_creds": None,
 }
 
+# Add error types
+class UntisSessionError(Exception):
+    """Raised when Untis session operations fail."""
+    pass
+
+class UntisCredentialsError(Exception):
+    """Raised when Untis credentials are invalid or missing."""
+    pass
+
 # Helper Functions from UntisAPI
 async def set_untis_session() -> bool:
-    """Initialize and authenticate Untis calendar session.
-    
-    Uses credentials from SECURE_DB to establish WebUntis connection.
-    Updates DB["untis_session"] with active session.
-    
-    Returns:
-        bool: True if session created successfully, False otherwise
-    
-    Raises:
-        Exception: If connection or authentication fails
-    """
+    """Initialize Untis session with error handling."""
     try:
         global DB, SECURE_DB
-        print(f"Attempting to connect to server: {SECURE_DB['untis_creds'].server}")
         
-        DB["untis_session"] = webuntis.Session(
-            username=SECURE_DB["untis_creds"].username,
-            password=SECURE_DB["untis_creds"].password,
-            server=SECURE_DB["untis_creds"].server,
-            school=SECURE_DB["untis_creds"].school,
-            useragent=SECURE_DB["untis_creds"].useragent
+        # Validate credentials
+        if not SECURE_DB.get("untis_creds"):
+            raise UntisCredentialsError("No credentials configured")
+            
+        creds = SECURE_DB["untis_creds"]
+        logging.info(f"Connecting to Untis server: {creds.server}")
+        
+        # Create and validate session
+        session = webuntis.Session(
+            username=creds.username,
+            password=creds.password,
+            server=creds.server,
+            school=creds.school,
+            useragent=creds.useragent
         )
-        DB["untis_session"].login()
-        print("Untis session created and logged in successfully")
+        
+        # Test connection
+        try:
+            session.login()
+        except webuntis.errors.BadCredentialsError:
+            raise UntisCredentialsError("Invalid credentials")
+        except Exception as e:
+            raise UntisSessionError(f"Login failed: {str(e)}")
+            
+        # Store session only after successful login
+        DB["untis_session"] = session
+        DB["untis_state"] = "connected"
+        logging.info("Untis session created successfully")
+        return True
+        
+    except UntisCredentialsError as e:
+        DB["untis_session"] = None
+        DB["untis_state"] = "no_credentials"
+        logging.error(f"Credential error: {str(e)}")
+        return False
+    except UntisSessionError as e:
+        DB["untis_session"] = None
+        DB["untis_state"] = "error"
+        logging.error(f"Session error: {str(e)}")
+        return False
+    except Exception as e:
+        DB["untis_session"] = None
+        DB["untis_state"] = "error"
+        logging.error(f"Unexpected error: {str(e)}")
+        return False
+
+async def set_timetable(dayRange: int = 10) -> bool:
+    global DB
+
+    if DB["untis_session"] is None:
+        print("Session is None, cannot set timetable")
+        return False
+
+    now: datetime.date = datetime.datetime.now()
+    try:
+        print(f"Fetching timetable from {now} to {now + datetime.timedelta(days=dayRange)}")
+        timetable = DB["untis_session"].my_timetable(start=now, end=now + datetime.timedelta(days=dayRange))
+        DB["timeTable"] = sorted(timetable, key=lambda x: x.start, reverse=False)
         return True
     except Exception as e:
-        print(f"Failed to create or login Untis session: {e}")
+        print(f"Failed to set timetable: {e}")
         return False
-        
 
-async def set_timetable(dayRange: int)->bool:
+async def setTimeTable(dayRange: int)->bool:
     global DB
 
     if DB["session"] is None:
         print("Session is None, cannot set timetable")
         return False
 
-    now: datetime.date = datetime.now()
+    now: datetime.date = datetime.datetime.now()
   
     try:
         print(f"Fetching timetable from {now} to {now + datetime.timedelta(days=dayRange)}")
@@ -115,7 +161,7 @@ async def set_timetable(dayRange: int)->bool:
     except Exception as e:
         print(f"Failed to set timetable: {e}")
         return False
-    
+
 async def has_untis_session() -> bool:
     try:
         return DB["untis_session"] is not None
@@ -133,9 +179,7 @@ async def initiate_device_flow():
     return flow
 
 # Update Loops
-import logging
-from datetime import datetime
-from typing import Optional
+
 
 # Add configuration constants
 UPDATE_INTERVALS = {
@@ -178,40 +222,39 @@ async def ms_refresh_token_loop():
         await asyncio.sleep(UPDATE_INTERVALS["ms_token"])
 
 async def untis_update_loop():
-    """Background task that maintains Untis calendar data.
-    
-    Features:
-    - Periodic session verification
-    - Automatic credential reload
-    - Timetable updates
-    - Error recovery
-    """
+    """Background task that maintains Untis calendar data."""
     while True:
         try:
-            if not await has_untis_session():
+            # Check session state
+            if DB["untis_state"] != "connected" or DB["untis_session"] is None:
                 try:
-                    with open("creds.json", "r") as infile:
-                        creds_data = json.load(infile)
-                        SECURE_DB["untis_creds"] = credentials(**creds_data)
-                    logging.info(f"Loaded Untis credentials")
+                    # Load credentials if needed
+                    if not SECURE_DB["untis_creds"]:
+                        with open("creds.json", "r") as infile:
+                            creds_data = json.load(infile)
+                            SECURE_DB["untis_creds"] = credentials(**creds_data)
+                        logging.info("Loaded Untis credentials")
+                    
+                    # Try to establish session
+                    if not await set_untis_session():
+                        logging.error("Failed to establish session")
+                        await asyncio.sleep(UPDATE_INTERVALS["retry"])
+                        continue
+                        
                 except Exception as e:
-                    logging.error(f"Failed to load Untis credentials: {e}")
+                    logging.error(f"Credential loading error: {e}")
                     await asyncio.sleep(UPDATE_INTERVALS["retry"])
                     continue
 
-            if not await set_untis_session():
-                logging.error("Failed to establish Untis session")
-                await asyncio.sleep(UPDATE_INTERVALS["retry"])
-                continue
-
-            if await set_timetable(10):
-                DB["last_timetable_update"] = datetime.now()
+            # Update timetable with valid session
+            if DB["untis_session"] and await set_timetable(10):
                 logging.info("Timetable updated successfully")
             else:
                 logging.warning("Failed to update timetable")
                 
         except Exception as e:
             logging.error(f"Untis update error: {e}")
+            DB["untis_state"] = "error"
             await asyncio.sleep(UPDATE_INTERVALS["retry"])
             continue
 
@@ -228,13 +271,14 @@ async def lifespan(app: FastAPI):
     atexit.register(lambda: 
         open(SECURE_DB["cache_path"], "w").write(DB["token_cache"].serialize())
     )
-    
-    DB["ms_app"] = msal.PublicClientApplication(
-        SECURE_DB["client_id"],
-        authority=SECURE_DB["authority"],
-        token_cache=DB["token_cache"]
-    )
-    
+    try:
+        DB["ms_app"] = msal.PublicClientApplication(
+            SECURE_DB["client_id"],
+            authority=SECURE_DB["authority"],
+            token_cache=DB["token_cache"]
+        )
+    except requests.exceptions.ConnectionError:
+        print("leckmeineeirer")
     # Initialize DBus for WiFi
     try:
         DBusGMainLoop(set_as_default=True)
@@ -392,7 +436,7 @@ async def get_timetable(dayRange: int = 1):
 async def get_status() -> model:
     """Get system status."""
     global DB
-    return model(setup=True, model=ClockType.Mini)
+    return model(setup=False, model=ClockType.Mini)
 
 # Terminal endpoints
 @app.post("/run", tags=["System"])
@@ -464,14 +508,14 @@ async def setSession()->bool:
     try:
         global DB, SECURE_DB
         
-        print(f"Attempting to connect to server: {SECURE_DB['creds'].server}")
+        print(f"Attempting to connect to server: {SECURE_DB['untis_creds'].server}")
         
         DB["session"] = webuntis.Session( 
-            username=SECURE_DB["creds"].username,
-            password=SECURE_DB["creds"].password,
-            server=SECURE_DB["creds"].server,
-            school=SECURE_DB["creds"].school,
-            useragent=SECURE_DB["creds"].useragent
+            username=SECURE_DB["untis_creds"].username,
+            password=SECURE_DB["untis_creds"].password,
+            server=SECURE_DB["untis_creds"].server,
+            school=SECURE_DB["untis_creds"].school,
+            useragent=SECURE_DB["untis_creds"].useragent
         )
         DB["session"].login()
         print("Session created and logged in successfully")
@@ -483,6 +527,53 @@ async def setSession()->bool:
         print(f"Connection error: {e}")
         return False
 
+async def setTimeTable(dayRange: int)->bool:
+    global DB
+
+    if DB["session"] is None:
+        print("Session is None, cannot set timetable")
+        return False
+
+    now: datetime.date = datetime.datetime.now()
+  
+    try:
+        print(f"Fetching timetable from {now} to {now + datetime.timedelta(days=dayRange)}")
+        timetable = DB["session"].my_timetable(start=now, end=now + datetime.timedelta(days=dayRange))
+        DB["timeTable"] = sorted(timetable, key=lambda x: x.start, reverse=False)
+        return True
+    except Exception as e:
+        print(f"Failed to set timetable: {e}")
+        return False
+
+async def setNextHoliday()->bool:
+    global DB
+    DB["holidays"] = DB["session"].holidays()
+    return True
+
+async def setNextEvent(maxDeph = 14)->bool:
+    pass
+
+@app.post("/set-cred")
+async def setCreds(cred: credentials):
+    global SECURE_DB 
+    json_object = json.dumps(SECURE_DB["untis_creds"].dict(), indent=2)
+    with open("creds.json", "w") as outfile:
+        outfile.write(json_object)
+    return SECURE_DB["untis_creds"]
+
+@app.get("/get-Timtable")
+async def getTimeTable(dayRange: int):
+    global DB
+    output: dict = {}
+    
+    # Sort the timetable by start time
+    sorted_timetable = sorted(DB["timeTable"], key=lambda t: t.start,reverse=False)
+    
+    for i, t in enumerate(sorted_timetable):
+        if i > 1:
+            output[t.studentGroup] = t.start.strftime("%H:%M"), t.end.strftime("%H:%M")
+    
+    return output
 def get_wifi_device():
     if not DB["bus"]:
         raise HTTPException(status_code=500, detail="DBus not initialized")
@@ -524,11 +615,13 @@ async def get_access_points():
             
             ssid = ap_props.Get('org.freedesktop.NetworkManager.AccessPoint', 'Ssid')
             strength = ap_props.Get('org.freedesktop.NetworkManager.AccessPoint', 'Strength')
-            
+            id = ap_props.Get('org.freedesktop.NetworkManager.AccessPoint', 'HwAddress')           
+
             if not bytearray(ssid).decode() == "":
                 networks.append({
                     "ssid": bytearray(ssid).decode(),
-                    "strength": strength
+                    "strength": strength,
+                    "id": id
                 })
         except Exception as e:
             print(f"Error processing access point: {e}")
@@ -587,5 +680,3 @@ def get_relative_path(filename: str) -> str:
     """Get path relative to this file's directory."""
     return os.path.join(os.path.dirname(__file__), filename)
 
-
-print(get_relative_path("creds.json"))
