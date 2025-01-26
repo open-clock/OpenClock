@@ -4,12 +4,13 @@ import math
 from waveshare_epd import epd7in5_V2
 import signal
 import time
+import ipdetect
+import json
+import setupscreen
 
 # Display resolution
 EPD_WIDTH       = 800
 EPD_HEIGHT      = 480
-
-WALLMOUNT = False
 
 #GRAY1  = 0xff #white
 #GRAY2  = 0xC0
@@ -24,17 +25,21 @@ timeTableHeaderFont = ImageFont.truetype('./Geist-Regular.ttf', 20)
 timeTableLessonFont = ImageFont.truetype('./GeistMono-Regular.ttf', 20)
 timeTableNextEventFont = ImageFont.truetype('./Geist-Regular.ttf', 14)
 
+ip = "10.10.10.1"
+wallmount = False
+model = "OpenClock Mini"
+
 def handle_exit(sig, frame):
     raise(SystemExit)
 signal.signal(signal.SIGTERM, handle_exit)
 
-def drawScreen():
+def drawScreen() -> Image:
     image = Image.new('1', (EPD_HEIGHT, EPD_WIDTH), 255)  # 255: clear the frame    L -> Greyscale  1 -> B/W
     draw = ImageDraw.Draw(image)
 
     # info
-    draw.text((0,2), "OpenClock Mini", font=infoFont, fill=GRAY4, anchor="lt", align="left")
-    draw.text((EPD_HEIGHT,2), "192.168.1.100", font=infoFont, fill=GRAY4, anchor="rt", align="right")
+    draw.text((0,2), model, font=infoFont, fill=GRAY4, anchor="lt", align="left")
+    draw.text((EPD_HEIGHT,2), ip, font=infoFont, fill=GRAY4, anchor="rt", align="right")
 
     # notifications
     for i in range(1, 13):
@@ -133,21 +138,54 @@ def drawScreen():
     draw.line((CENTER_X, 128 + 14, CENTER_X + mxdiff, 128 + 14 - mydiff), fill=GRAY4, width=2) # Minute hand
     draw.line((CENTER_X, 128 + 14, CENTER_X + sxdiff, 128 + 14 - sydiff), fill=GRAY4, width=2) # Second hand
 
-    if not WALLMOUNT:
+    if not wallmount:
         image = image.transpose(Image.ROTATE_180)
 
     return image
 
 try:
+    try:
+        ip = ipdetect.get_ip("wlan0")
+        with open("/tryboot/config.json", "r") as f:
+            j = json.load(f)
+            wallmount = j["wallmount"]
+            model = j["model"]
+            setup = j["setup"]
+    except:
+        print("Error reading config.json")
+        setup = False
     epd = epd7in5_V2.EPD()
     epd.init()
     epd.Clear()
-    epd.display(epd.getbuffer(drawScreen()))
+    if not setup:
+        epd.display(epd.getbuffer(setupscreen.drawSetupScreen(wallmount)))
+    else:
+        epd.display(epd.getbuffer(drawScreen()))
+    epd.sleep()
     lastMinute = datetime.datetime.now().minute
 
     try:
         while True:
+            if not setup:
+                try:
+                    with open("/tryboot/config.json", "r") as f:
+                        j = json.load(f)
+                        setup = j["setup"]
+                except:
+                    print("Error reading config.json")
+                continue
+
             if datetime.datetime.now().minute != lastMinute:
+                try:
+                    ip = ipdetect.get_ip("wlan0")
+                    with open("/tryboot/config.json", "r") as f:
+                        j = json.load(f)
+                        wallmount = j["wallmount"]
+                        model = j["model"]
+                        setup = j["setup"]
+                except:
+                    print("Error reading config.json")
+
                 epd.init_fast()
                 epd.display(epd.getbuffer(drawScreen()))
                 epd.sleep()
