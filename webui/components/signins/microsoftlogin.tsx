@@ -1,6 +1,6 @@
 import { DialogContent, DialogTitle } from "../ui/dialog";
 
-export default function MicrosoftLoginDialogContent() {
+export default function MicrosoftLoginDialogContent({ setMicrosoftOpen }: { setMicrosoftOpen: (value: boolean) => void }) {
     return (
         <DialogContent>
             <DialogTitle>Microsoft Login</DialogTitle>

@@ -10,13 +10,18 @@ import { Dialog, DialogTrigger } from "@radix-ui/react-dialog";
 import MicrosoftLoginDialogContent from "../signins/microsoftlogin";
 import UntisLoginDialogContent from "../signins/untislogin";
 import DiscordLoginDialogContent from "../signins/discordlogin";
+import { useState } from "react";
 
 export default function LoginPage() {
+    const [microsoftOpen, setMicrosoftOpen] = useState(false);
+    const [untisOpen, setUntisOpen] = useState(false);
+    const [discordOpen, setDiscordOpen] = useState(false);
+
     return (
         <div>
             <h1 className="text-2xl font-bold mb-4">Login</h1>
             <div className="grid grid-cols-2 gap-4">
-                <Dialog>
+                <Dialog open={microsoftOpen} onOpenChange={setMicrosoftOpen}>
                     <DialogTrigger asChild>
                         <Card className="cursor-pointer hover:bg-light-secondary dark:hover:bg-dark-secondary">
                             <CardHeader>
@@ -25,9 +30,9 @@ export default function LoginPage() {
                             </CardHeader>
                         </Card>
                     </DialogTrigger>
-                    <MicrosoftLoginDialogContent />
+                    <MicrosoftLoginDialogContent setMicrosoftOpen={setMicrosoftOpen} />
                 </Dialog>
-                <Dialog>
+                <Dialog open={untisOpen} onOpenChange={setUntisOpen}>
                     <DialogTrigger asChild>
                         <Card className="cursor-pointer hover:bg-light-secondary dark:hover:bg-dark-secondary">
                             <CardHeader>
@@ -36,9 +41,9 @@ export default function LoginPage() {
                             </CardHeader>
                         </Card>
                     </DialogTrigger>
-                    <UntisLoginDialogContent />
+                    <UntisLoginDialogContent setUntisOpen={setUntisOpen} />
                 </Dialog>
-                <Dialog>
+                <Dialog open={discordOpen} onOpenChange={setDiscordOpen}>
                     <DialogTrigger asChild>
                         <Card className="cursor-pointer hover:bg-light-secondary dark:hover:bg-dark-secondary">
                             <CardHeader>
@@ -47,7 +52,7 @@ export default function LoginPage() {
                             </CardHeader>
                         </Card>
                     </DialogTrigger>
-                    <DiscordLoginDialogContent />
+                    <DiscordLoginDialogContent setDiscordOpen={setDiscordOpen} />
                 </Dialog>
             </div>
         </div>

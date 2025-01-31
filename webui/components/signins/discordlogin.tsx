@@ -1,6 +1,6 @@
 import { DialogContent, DialogTitle } from "../ui/dialog";
 
-export default function DiscordLoginDialogContent() {
+export default function DiscordLoginDialogContent({ setDiscordOpen }: { setDiscordOpen: (value: boolean) => void }) {
     return (
         <DialogContent>
             <DialogTitle>Discord Login</DialogTitle>
