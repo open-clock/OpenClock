@@ -41,6 +41,7 @@ class model(BaseModel):
     """
     model: ClockType
     setup: bool
+    wallmounted: bool
 
 class credentials(BaseModel):
     """Untis authentication credentials.
@@ -58,7 +59,7 @@ class credentials(BaseModel):
     password: str
     server: str
     school: str
-    useragent: str
+    useragent: str = "OpenClDevtest"
 
 class command(BaseModel):
     """System command model.
@@ -97,3 +98,13 @@ class EmailMessage(BaseModel):
     from_email: str
     received_date: str
     body: Optional[str]
+
+class ConfigModel(BaseModel):
+    """System configuration settings."""
+    debug: bool = False
+    hostname: str = "openclock"
+    wifi_enabled: bool = True
+    untis_update_interval: int = 300
+    ms_update_interval: int = 3600
+    display_brightness: int = 100
+    timezone: str = "UTC"

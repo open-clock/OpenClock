@@ -27,6 +27,9 @@ from asyncio.exceptions import TimeoutError
 from dbus.mainloop.glib import DBusGMainLoop
 import dbus
 import time
+from pathlib import Path
+
+CONFIG_FILE = Path(__file__).parent / "config.json"
 
 global DB, SECURE_DB
 
@@ -49,7 +52,14 @@ DB = {
     
     # DBus runtime data
     "bus": None,
-    "wifi_device": None
+    "wifi_device": None,
+
+    #configs
+    "config": ConfigModel(
+        model=ClockType.Mini,
+        setup=False,
+        wallmounted=False
+    )
 }
 
 # Sensitive data
@@ -154,7 +164,6 @@ async def setTimeTable(dayRange: int)->bool:
     now: datetime.date = datetime.datetime.now()
   
     try:
-        print(f"Fetching timetable from {now} to {now + datetime.timedelta(days=dayRange)}")
         timetable = DB["session"].my_timetable(start=now, end=now + datetime.timedelta(days=dayRange))
         DB["timeTable"] = sorted(timetable, key=lambda x: x.start, reverse=False)
         return True
@@ -240,7 +249,7 @@ async def untis_update_loop():
                         logging.error("Failed to establish session")
                         await asyncio.sleep(UPDATE_INTERVALS["retry"])
                         continue
-                        
+                    
                 except Exception as e:
                     logging.error(f"Credential loading error: {e}")
                     await asyncio.sleep(UPDATE_INTERVALS["retry"])
@@ -286,6 +295,9 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Failed to initialize DBus: {e}")
     
+    #Load config
+    await set_configDB()
+
     # Start both update tasks
     ms_task = asyncio.create_task(ms_refresh_token_loop())
     untis_task = asyncio.create_task(untis_update_loop())
@@ -299,7 +311,7 @@ async def lifespan(app: FastAPI):
             await task
         except asyncio.CancelledError:
             pass
-
+    await set_configFile()
 app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
@@ -368,8 +380,6 @@ async def initiate_ms_login():
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-
-
 @app.get("/microsoft/messages", response_model=List[EmailMessage], tags=["Microsoft"])
 async def get_messages():
     """Fetch Microsoft email messages."""
@@ -436,7 +446,7 @@ async def get_timetable(dayRange: int = 1):
 async def get_status() -> model:
     """Get system status."""
     global DB
-    return model(setup=False, model=ClockType.Mini)
+    return model(setup=DB["config"].dict().setup, model=DB["config"].dict().model, wallmounted=DB["config"].dict().wallmounted)
 
 # Terminal endpoints
 @app.post("/run", tags=["System"])
@@ -531,8 +541,8 @@ async def setTimeTable(dayRange: int)->bool:
     global DB
 
     if DB["session"] is None:
-        print("Session is None, cannot set timetable")
-        return False
+        setSession()
+        
 
     now: datetime.date = datetime.datetime.now()
   
@@ -553,15 +563,17 @@ async def setNextHoliday()->bool:
 async def setNextEvent(maxDeph = 14)->bool:
     pass
 
-@app.post("/set-cred")
+@app.post("/untis/set-creds",tags=["Untis"])
 async def setCreds(cred: credentials):
     global SECURE_DB 
+    #try:
+
     json_object = json.dumps(SECURE_DB["untis_creds"].dict(), indent=2)
     with open("creds.json", "w") as outfile:
         outfile.write(json_object)
     return SECURE_DB["untis_creds"]
 
-@app.get("/get-Timtable")
+@app.get("/get-Timtable", tags=["Untis"])
 async def getTimeTable(dayRange: int):
     global DB
     output: dict = {}
@@ -680,3 +692,107 @@ def get_relative_path(filename: str) -> str:
     """Get path relative to this file's directory."""
     return os.path.join(os.path.dirname(__file__), filename)
 
+@app.post("/config/get", tags=["Config"])
+async def get_config():
+    global DB   
+    print(DB["config"])
+    return DB["config"]
+    
+
+async def set_configDB():
+    """Load configuration from file."""
+    global DB
+    config_path = get_relative_path("config.json")
+    
+    try:
+        # Check if file exists and has content
+        if not os.path.exists(config_path) or os.path.getsize(config_path) == 0:
+            # Create default config
+            default_config = ConfigModel(
+                model=ClockType.Mini,
+                setup=False,
+                wallmounted=False
+            )
+            
+            # Save default config
+            with open(config_path, "w") as outfile:
+                json.dump(default_config.dict(), outfile, indent=2)
+            
+            DB["config"] = default_config
+            logging.info("Created default config")
+            return
+            
+        # Load existing config
+        with open(config_path, "r") as infile:
+            data = json.load(infile)
+            DB["config"] = ConfigModel(**data)
+            logging.info("Config loaded successfully")
+            
+    except Exception as e:
+        logging.error(f"Failed to load config: {e}")
+        # Use default config on error
+        DB["config"] = ConfigModel(
+            model=ClockType.Mini,
+            setup=False,
+            wallmounted=False
+        )
+
+async def set_configFile():
+    global DB
+    try:
+        with open(get_relative_path("config.json"), "w") as infile:
+            jsonfile = json.dump(DB["config"].dict(), infile)
+            infile.write(jsonfile)
+    except FileNotFoundError :
+        print("Config file not found")
+    except Exception as e:
+        print(f"Error loading config file: {e}")
+
+@app.post("/config/setSetup", tags=["Config"])
+async def set_setup(setup: bool):
+    global DB
+    DB["config"].setup = setup
+    set_configFile()
+    return True
+@app.post("/config/setWallmount", tags=["Config"])
+async def set_wallmount(wallmount: bool):
+    global DB
+    DB["config"].wallmounted = wallmount
+    set_configFile()
+    return True
+
+@app.get("/config", tags=["Config"])
+async def get_config():
+    """Get current configuration."""
+    try:
+        if not DB.get("config"):
+            raise HTTPException(status_code=404, detail="No config found")
+        return DB["config"]
+    except Exception as e:
+        logging.error(f"Failed to get config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/config", tags=["Config"])
+async def update_config(config: ConfigModel):
+    """Update system configuration."""
+    try:
+        DB["config"] = config.dict()
+        # Save to file
+        with open(CONFIG_FILE, 'w') as f:
+            json.dump(DB["config"], f, indent=2)
+        return {"status": "success", "message": "Configuration updated"}
+    except Exception as e:
+        logging.error(f"Failed to update config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/config/reset", tags=["Config"])
+async def reset_config():
+    """Reset configuration to defaults."""
+    try:
+        DB["config"] = ConfigModel().dict()
+        with open(CONFIG_FILE, 'w') as f:
+            json.dump(DB["config"], f, indent=2)
+        return {"status": "success", "message": "Configuration reset to defaults"}
+    except Exception as e:
+        logging.error(f"Failed to reset config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

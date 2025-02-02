@@ -3,3 +3,4 @@ creds.json
 db.json
 secure.key
 runtime_state.json
+cache.bin
