@@ -587,6 +587,75 @@ async def getTimeTable(dayRange: int):
     
     return output
 def get_wifi_device():
+    """Get WiFi device with error handling."""
+    try:
+        if not DB["bus"]:
+            raise HTTPException(status_code=500, detail="DBus not initialized")
+        
+        nm = DB["bus"].get_object('org.freedesktop.NetworkManager', '/org/freedesktop/NetworkManager')
+        nm_props = dbus.Interface(nm, 'org.freedesktop.DBus.Properties')
+        devices = nm_props.Get('org.freedesktop.NetworkManager', 'AllDevices')
+        
+        for device_path in devices:
+            device = DB["bus"].get_object('org.freedesktop.NetworkManager', device_path)
+            props = dbus.Interface(device, 'org.freedesktop.DBus.Properties')
+            device_type = props.Get('org.freedesktop.NetworkManager.Device', 'DeviceType')
+            if device_type == 2:  # WiFi device
+                return device_path
+                
+        raise HTTPException(status_code=404, detail="No WiFi device found")
+    except dbus.exceptions.DBusException as e:
+        logging.error(f"DBus error: {e}")
+        raise HTTPException(status_code=500, detail="Network manager not available")
+    except Exception as e:
+        logging.error(f"Unexpected error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/network/scan", tags=["Network"])
+async def scan_networks():
+    """Scan for available WiFi networks."""
+    try:
+        if not DB["bus"]:
+            raise HTTPException(status_code=500, detail="Network system not initialized")
+            
+        device_path = get_wifi_device()
+        device = DB["bus"].get_object('org.freedesktop.NetworkManager', device_path)
+        wireless = dbus.Interface(device, 'org.freedesktop.NetworkManager.Device.Wireless')
+        
+        try:
+            access_points = wireless.GetAccessPoints()
+        except dbus.exceptions.DBusException:
+            # Trigger new scan if no APs found
+            wireless.RequestScan({})
+            await asyncio.sleep(2)  # Wait for scan
+            access_points = wireless.GetAccessPoints()
+            
+        networks = []
+        for ap_path in access_points:
+            try:
+                ap = DB["bus"].get_object('org.freedesktop.NetworkManager', ap_path)
+                props = dbus.Interface(ap, 'org.freedesktop.DBus.Properties')
+                
+                ssid = props.Get('org.freedesktop.NetworkManager.AccessPoint', 'Ssid')
+                strength = props.Get('org.freedesktop.NetworkManager.AccessPoint', 'Strength')
+                
+                if ssid:  # Only add if SSID exists
+                    networks.append({
+                        "ssid": bytes(ssid).decode('utf-8'),
+                        "strength": int(strength)
+                    })
+            except Exception as e:
+                logging.warning(f"Failed to get AP info: {e}")
+                continue
+                
+        return {"networks": sorted(networks, key=lambda x: x["strength"], reverse=True)}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Network scan failed: {e}")
+        return {"networks": [], "error": str(e)}
+def get_wifi_device():
     if not DB["bus"]:
         raise HTTPException(status_code=500, detail="DBus not initialized")
     
