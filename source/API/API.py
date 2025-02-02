@@ -737,16 +737,24 @@ async def set_configDB():
             wallmounted=False
         )
 
+class EnumEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Enum):
+            return obj.value
+        return json.JSONEncoder.default(self, obj)
+
 async def set_configFile():
+    """Save config to file with enum handling."""
     global DB
     try:
-        with open(get_relative_path("config.json"), "w") as infile:
-            jsonfile = json.dump(DB["config"].dict(), infile)
-            infile.write(jsonfile)
-    except FileNotFoundError :
-        print("Config file not found")
+        with open(get_relative_path("config.json"), "w") as f:
+            config_dict = DB["config"].dict()
+            # Convert enum to string value
+            config_dict["model"] = DB["config"].model.value
+            json.dump(config_dict, f, indent=2)
     except Exception as e:
-        print(f"Error loading config file: {e}")
+        logging.error(f"Error saving config file: {e}")
+        raise
 
 @app.post("/config/setSetup", tags=["Config"])
 async def set_setup(setup: bool):
@@ -789,10 +797,13 @@ async def update_config(config: ConfigModel):
 async def reset_config():
     """Reset configuration to defaults."""
     try:
-        DB["config"] = ConfigModel().dict()
-        with open(CONFIG_FILE, 'w') as f:
-            json.dump(DB["config"], f, indent=2)
-        return {"status": "success", "message": "Configuration reset to defaults"}
+        DB["config"] = ConfigModel(
+            model=ClockType.Mini,
+            setup=False,
+            wallmounted=False
+        )
+        await set_configFile()
+        return {"status": "success", "message": "Config reset to defaults"}
     except Exception as e:
         logging.error(f"Failed to reset config: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -872,5 +883,45 @@ async def update_wallmount(wallmount: bool):
         DB["config"].wallmounted = wallmount
         await save_config(DB["config"])
         return {"status": "success", "wallmounted": wallmount}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.patch("/config/debug", tags=["Config"])
+async def update_debug(debug: bool):
+    """Update debug status."""
+    try:
+        DB["config"].debug = debug
+        await save_config(DB["config"])
+        return {"status": "success", "debug": debug}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.patch("/config/hostname", tags=["Config"])
+async def update_hostname(hostname: str):
+    """Update hostname."""
+    try:
+        DB["config"].hostname = hostname
+        await save_config(DB["config"])
+        try:
+            subprocess.run(["hostnamectl", "set-hostname", hostname], check=True)
+        except subprocess.CalledProcessError as e:
+            logging.error(f"Failed to set system hostname: {e}")
+        return {"status": "success", "hostname": hostname}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.patch("/config/timezone", tags=["Config"])
+async def update_timezone(timezone: str):
+    """Update timezone."""
+    try:
+        if not os.path.exists(f"/usr/share/zoneinfo/{timezone}"):
+            raise HTTPException(status_code=400, detail="Invalid timezone")
+        DB["config"].timezone = timezone
+        await save_config(DB["config"])
+        try:
+            subprocess.run(["timedatectl", "set-timezone", timezone], check=True)
+        except subprocess.CalledProcessError as e:
+            logging.error(f"Failed to set system timezone: {e}")
+        return {"status": "success", "timezone": timezone}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

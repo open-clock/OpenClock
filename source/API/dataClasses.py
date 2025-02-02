@@ -10,6 +10,7 @@ This module contains all the Pydantic models and enums used for:
 from enum import Enum
 from pydantic import BaseModel
 from typing import Optional
+import json
 
 # CORS allowed origins
 origins = [
@@ -105,3 +106,11 @@ class ConfigModel(BaseModel):
     setup: bool = False
     wallmounted: bool = False
     debug: bool = False
+    hostname: str = "Open-Clock"
+    timezone: str = "UTC" 
+
+    def to_json(self) -> str:
+        """Convert config to JSON string with enum handling."""
+        config_dict = self.dict()
+        config_dict["model"] = self.model.value
+        return json.dumps(config_dict, indent=2)
