@@ -692,7 +692,7 @@ def get_relative_path(filename: str) -> str:
     """Get path relative to this file's directory."""
     return os.path.join(os.path.dirname(__file__), filename)
 
-@app.post("/config/get", tags=["Config"])
+@app.get("/config/get", tags=["Config"])
 async def get_config():
     global DB   
     print(DB["config"])
@@ -795,4 +795,82 @@ async def reset_config():
         return {"status": "success", "message": "Configuration reset to defaults"}
     except Exception as e:
         logging.error(f"Failed to reset config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- Config File Operations ---
+def get_config_path() -> Path:
+    """Get path to config file."""
+    return Path(__file__).parent / "config.json"
+
+async def load_config() -> ConfigModel:
+    """Load config from file or create default."""
+    try:
+        config_path = get_config_path()
+        if not config_path.exists():
+            default_config = ConfigModel(
+                model=ClockType.Mini,
+                setup=False,
+                wallmounted=False
+            )
+            await save_config(default_config)
+            return default_config
+        
+        with open(config_path, "r") as f:
+            data = json.load(f)
+            return ConfigModel(**data)
+    except Exception as e:
+        logging.error(f"Failed to load config: {e}")
+        return ConfigModel(
+            model=ClockType.Mini,
+            setup=False,
+            wallmounted=False
+        )
+
+async def save_config(config: ConfigModel) -> bool:
+    """Save config to file."""
+    try:
+        with open(get_config_path(), "w") as f:
+            json.dump(config.dict(), f, indent=2)
+        return True
+    except Exception as e:
+        logging.error(f"Failed to save config: {e}")
+        return False
+
+# --- Config API Endpoints ---
+@app.get("/config", tags=["Config"])
+async def get_config():
+    """Get current configuration."""
+    try:
+        return DB["config"]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/config", tags=["Config"])
+async def update_config(config: ConfigModel):
+    """Update complete configuration."""
+    try:
+        DB["config"] = config
+        await save_config(config)
+        return {"status": "success", "message": "Config updated"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.patch("/config/setup", tags=["Config"])
+async def update_setup(setup: bool):
+    """Update setup status."""
+    try:
+        DB["config"].setup = setup
+        await save_config(DB["config"])
+        return {"status": "success", "setup": setup}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.patch("/config/wallmount", tags=["Config"])
+async def update_wallmount(wallmount: bool):
+    """Update wallmount status."""
+    try:
+        DB["config"].wallmounted = wallmount
+        await save_config(DB["config"])
+        return {"status": "success", "wallmounted": wallmount}
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

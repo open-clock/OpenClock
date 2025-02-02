@@ -101,10 +101,7 @@ class EmailMessage(BaseModel):
 
 class ConfigModel(BaseModel):
     """System configuration settings."""
+    model: ClockType
+    setup: bool = False
+    wallmounted: bool = False
     debug: bool = False
-    hostname: str = "openclock"
-    wifi_enabled: bool = True
-    untis_update_interval: int = 300
-    ms_update_interval: int = 3600
-    display_brightness: int = 100
-    timezone: str = "UTC"
