@@ -8,17 +8,18 @@ import { Button } from "./ui/button";
 import Copyright from "./copyright";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
+import LocalePage from "./setup-steps/locale";
+import { API_ENDPOINT } from "@/lib/constants";
 
 export default function SetupWizard({ clocktype }: { clocktype: ClockType }) {
   const [currentStep, setCurrentStep] = useState(0);
   const setupMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch('/config/setSetup', {
+      const response = await fetch(`${API_ENDPOINT}/config/setSetup?setup=true`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ setup: true }),
       });
       if (!response.ok) {
         throw new Error('Failed to mark setup as complete');
@@ -38,6 +39,7 @@ export default function SetupWizard({ clocktype }: { clocktype: ClockType }) {
   const steps = [
     <WelcomePage key="welcome" clocktype={clocktype} />,
     <WifiPage key="wifi" />,
+    <LocalePage key="locale" />,
     <LoginPage key="login" />,
     <CompletePage key="complete" />
   ];
