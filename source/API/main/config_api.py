@@ -5,21 +5,24 @@ import logging
 import os
 from enum import Enum
 from pathlib import Path
-from dataClasses import ConfigModel, ClockType
+from source.API.dataClasses import ConfigModel, ClockType
 from db import DB
 
 router = APIRouter(prefix="/config", tags=["Config"])
+
 
 # --- Helper Functions ---
 def get_config_path() -> Path:
     """Get path to config file."""
     return Path(__file__).parent / "config.json"
 
+
 class EnumEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, Enum):
             return obj.value
         return json.JSONEncoder.default(self, obj)
+
 
 async def save_config(config: ConfigModel) -> bool:
     try:
@@ -32,21 +35,19 @@ async def save_config(config: ConfigModel) -> bool:
         logging.error(f"Failed to save config: {e}")
         return False
 
+
 async def load_config() -> ConfigModel:
     try:
         config_path = get_config_path()
         if not config_path.exists():
-            return ConfigModel(
-                model=ClockType.Mini,
-                setup=False,
-                wallmounted=False
-            )
+            return ConfigModel(model=ClockType.Mini, setup=False, wallmounted=False)
         with open(config_path, "r") as f:
             data = json.load(f)
             return ConfigModel(**data)
     except Exception as e:
         logging.error(f"Failed to load config: {e}")
         return ConfigModel()
+
 
 # --- API Endpoints ---
 @router.get("/")
@@ -56,6 +57,7 @@ async def get_config():
         return DB["config"]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/")
 async def update_config(config: ConfigModel):
@@ -67,6 +69,7 @@ async def update_config(config: ConfigModel):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.patch("/debug")
 async def update_debug(debug: bool):
     """Update debug mode."""
@@ -76,6 +79,7 @@ async def update_debug(debug: bool):
         return {"status": "success", "debug": debug}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.patch("/hostname")
 async def update_hostname(hostname: str):
@@ -90,6 +94,7 @@ async def update_hostname(hostname: str):
         return {"status": "success", "hostname": hostname}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.patch("/timezone")
 async def update_timezone(timezone: str):
@@ -107,15 +112,12 @@ async def update_timezone(timezone: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.get("/reset")
 async def reset_config():
     """Reset configuration to defaults."""
     try:
-        DB["config"] = ConfigModel(
-            model=ClockType.Mini,
-            setup=False,
-            wallmounted=False
-        )
+        DB["config"] = ConfigModel(model=ClockType.Mini, setup=False, wallmounted=False)
         await save_config(DB["config"])
         return {"status": "success", "message": "Config reset to defaults"}
     except Exception as e:

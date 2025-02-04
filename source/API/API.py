@@ -2,7 +2,7 @@
 
 Provides endpoints and background tasks for:
 - Microsoft account integration
-- Untis calendar synchronization  
+- Untis calendar synchronization
 - WiFi network management
 - System status and control
 """
