@@ -23,3 +23,12 @@ export interface ConnectNetwork {
     ssid: string;
     password: string;
 }
+
+export interface Config {
+    model: string;
+    setup: boolean;
+    wallmounted: boolean;
+    debug: boolean;
+    hostname: string;
+    timezone: string;
+}

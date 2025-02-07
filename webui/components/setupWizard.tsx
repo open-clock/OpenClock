@@ -10,6 +10,7 @@ import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import LocalePage from "./setup-steps/locale";
 import { API_ENDPOINT } from "@/lib/constants";
+import DeviceSettingsPage from "./setup-steps/device-settings";
 
 export default function SetupWizard({ clocktype }: { clocktype: ClockType }) {
   const [currentStep, setCurrentStep] = useState(0);
@@ -41,6 +42,7 @@ export default function SetupWizard({ clocktype }: { clocktype: ClockType }) {
     <WifiPage key="wifi" />,
     <LocalePage key="locale" />,
     <LoginPage key="login" />,
+    <DeviceSettingsPage key="device-settings" />,
     <CompletePage key="complete" />
   ];
 

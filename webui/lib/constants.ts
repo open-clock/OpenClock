@@ -1,1 +1,1 @@
-export const API_ENDPOINT = "http://localhost:8000"//"http://openclock.local:8080"
+export const API_ENDPOINT = "http://openclock.local:8080"

@@ -1,16 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Button } from "../ui/button";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../ui/command";
 import { cn } from "@/lib/utils";
 import { API_ENDPOINT } from "@/lib/constants";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "../ui/skeleton";
 
 export default function LocalePage() {
     const [open, setOpen] = useState(false)
     const [value, setValue] = useState("Europe/Vienna")
+    const queryClient = useQueryClient();
 
     const { isPending, error, data, isFetching } = useQuery<string[], Error>({
         queryKey: ['config/getTimezones'],
@@ -22,7 +23,38 @@ export default function LocalePage() {
         },
     });
 
-    if (isPending) return (
+    const timezoneQuery = useQuery<string, Error>({
+        queryKey: ['config/getTimezone'],
+        queryFn: async (): Promise<string> => {
+            const response = await fetch(
+                `${API_ENDPOINT}/config/getTimezone`,
+            );
+            return await response.json();
+        },
+    });
+
+    const timezoneMutation = useMutation({
+        mutationFn: async (newTimezone: string) => {
+            const response = await fetch(`${API_ENDPOINT}/config/setTimezone?timezone=${newTimezone}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+            return response.json();
+        },
+        onSuccess: () => {
+            // invalidate the query
+            queryClient.invalidateQueries({ queryKey: ['config/getTimezone'] });
+        }
+    });
+
+    useEffect(() => {
+        setValue(timezoneQuery.data || "Europe/Vienna")
+    }, [timezoneQuery.data]);
+
+
+    if (isPending || timezoneQuery.isPending) return (
         <div>
             <h1 className="text-2xl font-semibold mb-4">Select your location</h1>
 
@@ -38,6 +70,12 @@ export default function LocalePage() {
     if (error) return (
         <div className="min-h-screen flex items-center justify-center">
             <h1 className="text-center text-2xl">An error has occurred: {error.message}</h1>
+        </div>
+    );
+
+    if (timezoneQuery.error) return (
+        <div className="min-h-screen flex items-center justify-center">
+            <h1 className="text-center text-2xl">An error has occurred: {timezoneQuery.error.message}</h1>
         </div>
     );
 
@@ -76,6 +114,7 @@ export default function LocalePage() {
                                             onSelect={(currentValue) => {
                                                 setValue(currentValue)
                                                 setOpen(false)
+                                                timezoneMutation.mutate(currentValue)
                                             }}
                                         >
                                             {locale}
