@@ -220,7 +220,9 @@ async def ms_refresh_token_loop():
     - Status logging
     """
     while True:
+
         try:
+            setSystemTimeZone()
             if DB["ms_result"]:
                 accounts = DB["ms_app"].get_accounts()
                 if accounts:
@@ -992,7 +994,7 @@ async def save_config(config: ConfigModel) -> bool:
 
 
 # --- Config API Endpoints ---
-@app.get("/config", tags=["Config"])
+@app.get("/getConfig", tags=["Config"])
 async def get_config():
     """Get current configuration."""
     try:
@@ -1001,8 +1003,8 @@ async def get_config():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/config", tags=["Config"])
-async def update_config(config: ConfigModel):
+@app.post("/setConfig", tags=["Config"])
+async def set_config(config: ConfigModel):
     """Update complete configuration."""
     try:
         DB["config"] = config
@@ -1012,30 +1014,8 @@ async def update_config(config: ConfigModel):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.patch("/config/setup", tags=["Config"])
-async def update_setup(setup: bool):
-    """Update setup status."""
-    try:
-        DB["config"].setup = setup
-        await save_config(DB["config"])
-        return {"status": "success", "setup": setup}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.patch("/config/wallmount", tags=["Config"])
-async def update_wallmount(wallmount: bool):
-    """Update wallmount status."""
-    try:
-        DB["config"].wallmounted = wallmount
-        await save_config(DB["config"])
-        return {"status": "success", "wallmounted": wallmount}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.patch("/config/debug", tags=["Config"])
-async def update_debug(debug: bool):
+@app.post("/config/setDebug", tags=["Config"])
+async def set_debug(debug: bool):
     """Update debug status."""
     try:
         DB["config"].debug = debug
@@ -1045,8 +1025,8 @@ async def update_debug(debug: bool):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.patch("/config/hostname", tags=["Config"])
-async def update_hostname(hostname: str):
+@app.post("/config/setHostname", tags=["Config"])
+async def set_hostname(hostname: str):
     """Update hostname."""
     try:
         DB["config"].hostname = hostname
@@ -1060,8 +1040,8 @@ async def update_hostname(hostname: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.patch("/config/timezone", tags=["Config"])
-async def update_timezone(timezone: str):
+@app.post("/config/setTimezone", tags=["Config"])
+async def set_timezone(timezone: str):
     """Update timezone."""
     try:
         if not os.path.exists(f"/usr/share/zoneinfo/{timezone}"):
@@ -1098,3 +1078,14 @@ async def getTimezones():
         return sorted(timezones)  # Return sorted list for better readability
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+def setSystemTimeZone():
+    global DB
+    timedate1 = dbus.get_object(
+        "org.freedesktop.timedate1", "/org/freedesktop/timedate1"
+    )
+    interface = dbus.Interface(timedate1, "org.freedesktop.timedate1")
+
+    # Set the timezone to 'Australia/Sydney'
+    interface.SetTimezone(DB["config"].timezone, True)
