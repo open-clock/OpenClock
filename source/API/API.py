@@ -23,7 +23,7 @@ from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict
 import subprocess
-from asyncio import create_subprocess_shell, subprocess
+from asyncio import create_subprocess_shell
 from asyncio.exceptions import TimeoutError
 from dbus.mainloop.glib import DBusGMainLoop
 import dbus
@@ -222,7 +222,6 @@ async def ms_refresh_token_loop():
     while True:
 
         try:
-            setSystemTimeZone()
             if DB["ms_result"]:
                 accounts = DB["ms_app"].get_accounts()
                 if accounts:
@@ -304,7 +303,7 @@ async def lifespan(app: FastAPI):
             token_cache=DB["token_cache"],
         )
     except requests.exceptions.ConnectionError:
-        print("leckmeineeirer")
+        print("No internet connection")
     # Initialize DBus for WiFi
     try:
         DBusGMainLoop(set_as_default=True)
@@ -840,7 +839,7 @@ def get_relative_path(filename: str) -> str:
 @app.get("/config/get", tags=["Config"])
 async def get_config():
     global DB
-    print(DB["config"])
+    # print(DB["config"])
     return DB["config"]
 
 
@@ -912,7 +911,7 @@ async def set_wallmount(wallmount: bool):
     return True
 
 
-@app.get("/config", tags=["Config"])
+@app.get("/config", tags=["Config"], operation_id="get_full_config")
 async def get_config():
     """Get current configuration."""
     try:
@@ -924,7 +923,7 @@ async def get_config():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/config", tags=["Config"])
+@app.post("/config", tags=["Config"], operation_id="update_full_config")
 async def update_config(config: ConfigModel):
     """Update system configuration."""
     try:
@@ -994,7 +993,7 @@ async def save_config(config: ConfigModel) -> bool:
 
 
 # --- Config API Endpoints ---
-@app.get("/getConfig", tags=["Config"])
+@app.get("/config", tags=["Config"], operation_id="get_full_config")
 async def get_config():
     """Get current configuration."""
     try:
@@ -1003,7 +1002,7 @@ async def get_config():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/setConfig", tags=["Config"])
+@app.post("/config", tags=["Config"], operation_id="update_full_config")
 async def set_config(config: ConfigModel):
     """Update complete configuration."""
     try:
@@ -1052,12 +1051,13 @@ async def set_timezone(timezone: str):
             subprocess.run(["timedatectl", "set-timezone", timezone], check=True)
         except subprocess.CalledProcessError as e:
             logging.error(f"Failed to set system timezone: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
         return {"status": "success", "timezone": timezone}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/config/getTimezones", tags=["Config"])
+@app.get("/config/getTimezones", tags=["Config"], operation_id="get_timezone_list")
 async def getTimezones():
     try:
         timezones = []
@@ -1080,12 +1080,18 @@ async def getTimezones():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def setSystemTimeZone():
-    global DB
-    timedate1 = dbus.get_object(
-        "org.freedesktop.timedate1", "/org/freedesktop/timedate1"
-    )
-    interface = dbus.Interface(timedate1, "org.freedesktop.timedate1")
+@app.get("/config/getTimezone", tags=["Config"], operation_id="get_current_timezone")
+async def getTimezone():
+    try:
+        sowh = subprocess.check_output(["timedatectl", "show"])
+        for line in sowh.decode().splitlines():
+            if "Timezone" in line:
+                return line.split("=")[1]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-    # Set the timezone to 'Australia/Sydney'
-    interface.SetTimezone(DB["config"].timezone, True)
+
+@app.get("/config/getHostname", tags=["Config"], operation_id="get_system_hostname")
+async def getHostname(hostname: str):
+    with open("/etc/hostname", "r") as f:
+        return f.read().strip()
