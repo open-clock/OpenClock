@@ -10,6 +10,9 @@ from db import DB
 router = APIRouter(prefix="/network", tags=["Network"])
 
 
+# --- Help Functions ----
+
+
 def get_wifi_device():
     """Get WiFi device with error handling."""
     try:
@@ -40,8 +43,13 @@ def get_wifi_device():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+
+# --- Endpoints --- 
+
+
 @router.get("/scan")
 async def scan_networks():
+  async def scan_networks():
     """Scan for available WiFi networks."""
     try:
         if not DB["bus"]:
@@ -58,8 +66,9 @@ async def scan_networks():
         try:
             access_points = wireless.GetAccessPoints()
         except dbus.exceptions.DBusException:
+            # Trigger new scan if no APs found
             wireless.RequestScan({})
-            await asyncio.sleep(2)
+            await asyncio.sleep(2)  # Wait for scan
             access_points = wireless.GetAccessPoints()
 
         networks = []
@@ -73,7 +82,7 @@ async def scan_networks():
                     "org.freedesktop.NetworkManager.AccessPoint", "Strength"
                 )
 
-                if ssid:
+                if ssid:  # Only add if SSID exists
                     networks.append(
                         {"ssid": bytes(ssid).decode("utf-8"), "strength": int(strength)}
                     )
@@ -92,18 +101,22 @@ async def scan_networks():
 
 @router.get("/access-points")
 async def get_access_points():
-    """Get detailed access point information."""
     wifi_device = get_wifi_device()
     if not wifi_device:
         raise HTTPException(status_code=404, detail="No WiFi device found")
 
+    # Request scan
     wifi_interface = dbus.Interface(
         wifi_device, "org.freedesktop.NetworkManager.Device.Wireless"
     )
     wifi_interface.RequestScan({})
-    await asyncio.sleep(2)
 
+    # Wait for scan to complete
+    time.sleep(2)
+
+    # Get access points
     access_points = wifi_interface.GetAllAccessPoints()
+
     networks = []
 
     for ap in access_points:
@@ -115,20 +128,14 @@ async def get_access_points():
             strength = ap_props.Get(
                 "org.freedesktop.NetworkManager.AccessPoint", "Strength"
             )
-            hw_address = ap_props.Get(
-                "org.freedesktop.NetworkManager.AccessPoint", "HwAddress"
-            )
+            id = ap_props.Get("org.freedesktop.NetworkManager.AccessPoint", "HwAddress")
 
             if not bytearray(ssid).decode() == "":
                 networks.append(
-                    {
-                        "ssid": bytearray(ssid).decode(),
-                        "strength": strength,
-                        "id": hw_address,
-                    }
+                    {"ssid": bytearray(ssid).decode(), "strength": strength, "id": id}
                 )
         except Exception as e:
-            logging.error(f"Error processing access point: {e}")
+            print(f"Error processing access point: {e}")
             continue
 
     return networks
@@ -136,8 +143,9 @@ async def get_access_points():
 
 @router.post("/connect")
 async def connect_to_network(credentials: NetworkCredentials):
-    """Connect to WiFi network."""
+    global DB
     try:
+        # Get NetworkManager interface
         nm = DB["bus"].get_object(
             "org.freedesktop.NetworkManager", "/org/freedesktop/NetworkManager"
         )
@@ -184,6 +192,8 @@ async def connect_to_network(credentials: NetworkCredentials):
         )
 
         new_connection = settings_interface.AddConnection(connection_settings)
+
+        # Activate the connection
         nm_interface = dbus.Interface(nm, "org.freedesktop.NetworkManager")
         wifi_device = get_wifi_device()
         nm_interface.ActivateConnection(new_connection, wifi_device, "/")

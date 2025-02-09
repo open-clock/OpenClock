@@ -831,267 +831,58 @@ async def connect_to_network(credentials: NetworkCredentials):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def get_relative_path(filename: str) -> str:
-    """Get path relative to this file's directory."""
-    return os.path.join(os.path.dirname(__file__), filename)
 
 
-@app.get("/config/get", tags=["Config"])
-async def get_config():
-    global DB
-    # print(DB["config"])
-    return DB["config"]
 
 
-async def set_configDB():
-    """Load configuration from file."""
-    global DB
-    config_path = get_relative_path("config.json")
-
-    try:
-        # Check if file exists and has content
-        if not os.path.exists(config_path) or os.path.getsize(config_path) == 0:
-            # Create default config
-            default_config = ConfigModel(
-                model=ClockType.Mini, setup=False, wallmounted=False
-            )
-            DB["config"] = default_config
-
-            # Save default config
-            await save_config(default_config)
-
-            logging.info("Created default config")
-            return
-
-        # Load existing config
-        with open(config_path, "r") as infile:
-            data = json.load(infile)
-            DB["config"] = ConfigModel(**data)
-            logging.info("Config loaded successfully")
-
-    except Exception as e:
-        logging.error(f"Failed to load config: {e}")
-        # Use default config on error
-        DB["config"] = ConfigModel(model=ClockType.Mini, setup=False, wallmounted=False)
 
 
-class EnumEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, Enum):
-            return obj.value
-        return json.JSONEncoder.default(self, obj)
 
 
-async def set_configFile():
-    """Save config to file with enum handling."""
-    global DB
-    try:
-        with open(get_relative_path("config.json"), "w") as f:
-            config_dict = DB["config"]
-            # Convert enum to string value
-            f.write(DB["config"].toJSON())
-    except Exception as e:
-        logging.error(f"Error saving config file: {e}")
-        raise
 
 
-@app.post("/config/setSetup", tags=["Config"])
-async def set_setup(setup: bool):
-    global DB
-    DB["config"].setup = setup
-    await set_configFile()
-    return True
 
 
-@app.post("/config/setWallmount", tags=["Config"])
-async def set_wallmount(wallmount: bool):
-    global DB
-    DB["config"].wallmounted = wallmount
-    await set_configFile()
-    return True
 
 
-@app.get("/config", tags=["Config"], operation_id="get_full_config")
-async def get_config():
-    """Get current configuration."""
-    try:
-        if not DB.get("config"):
-            raise HTTPException(status_code=404, detail="No config found")
-        return DB["config"]
-    except Exception as e:
-        logging.error(f"Failed to get config: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/config", tags=["Config"], operation_id="update_full_config")
-async def update_config(config: ConfigModel):
-    """Update system configuration."""
-    try:
-        DB["config"] = config.dict()
-        # Save to file
-        with open(CONFIG_FILE, "w") as f:
-            json.dump(DB["config"], f, indent=2)
-        return {"status": "success", "message": "Configuration updated"}
-    except Exception as e:
-        logging.error(f"Failed to update config: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/config/reset", tags=["Config"])
-async def reset_config():
-    """Reset configuration to defaults."""
-    try:
-        DB["config"] = ConfigModel(model=ClockType.Mini, setup=False, wallmounted=False)
-        await set_configFile()
-        return {"status": "success", "message": "Config reset to defaults"}
-    except Exception as e:
-        logging.error(f"Failed to reset config: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+
+
+
 
 
 # --- Config File Operations ---
-def get_config_path() -> Path:
-    """Get path to config file."""
-    return Path(__file__).parent / "config.json"
 
 
-async def load_config() -> ConfigModel:
-    """Load config from file or create default."""
-    try:
-        config_path = get_config_path()
-        if not config_path.exists():
-            default_config = ConfigModel(
-                model=ClockType.Mini, setup=False, wallmounted=False
-            )
-            await save_config(default_config)
-            return default_config
-
-        with open(config_path, "r") as f:
-            data = json.load(f)
-            return ConfigModel(**data)
-    except json.JSONDecodeError:
-        logging.error("Failed to decode config file")
-        default_config = ConfigModel(
-            model=ClockType.Mini, setup=False, wallmounted=False
-        )
-        await save_config(default_config)
-        return ConfigModel(model=ClockType.Mini, setup=False, wallmounted=False)
-    except Exception as e:
-        logging.error(f"Failed to load config: {e}")
-        return ConfigModel(model=ClockType.Mini, setup=False, wallmounted=False)
 
 
-async def save_config(config: ConfigModel) -> bool:
-    """Save config to file."""
-    try:
-        with open(get_config_path(), "w") as f:
-            f.write(config.toJSON())
-        return True
-    except Exception as e:
-        logging.error(f"Failed to save config: {e}")
-        return False
+
+
 
 
 # --- Config API Endpoints ---
-@app.get("/config", tags=["Config"], operation_id="get_full_config")
-async def get_config():
-    """Get current configuration."""
-    try:
-        return DB["config"]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/config", tags=["Config"], operation_id="update_full_config")
-async def set_config(config: ConfigModel):
-    """Update complete configuration."""
-    try:
-        DB["config"] = config
-        await save_config(config)
-        return {"status": "success", "message": "Config updated"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/config/setDebug", tags=["Config"])
-async def set_debug(debug: bool):
-    """Update debug status."""
-    try:
-        DB["config"].debug = debug
-        await save_config(DB["config"])
-        return {"status": "success", "debug": debug}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/config/setHostname", tags=["Config"])
-async def set_hostname(hostname: str):
-    """Update hostname."""
-    try:
-        DB["config"].hostname = hostname
-        await save_config(DB["config"])
-        try:
-            subprocess.run(["hostnamectl", "set-hostname", hostname], check=True)
-        except subprocess.CalledProcessError as e:
-            logging.error(f"Failed to set system hostname: {e}")
-        return {"status": "success", "hostname": hostname}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/config/setTimezone", tags=["Config"])
-async def set_timezone(timezone: str):
-    """Update timezone."""
-    try:
-        if not os.path.exists(f"/usr/share/zoneinfo/{timezone}"):
-            raise HTTPException(status_code=400, detail="Invalid timezone")
-        DB["config"].timezone = timezone
-        await save_config(DB["config"])
-        try:
-            subprocess.run(["timedatectl", "set-timezone", timezone], check=True)
-        except subprocess.CalledProcessError as e:
-            logging.error(f"Failed to set system timezone: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
-        return {"status": "success", "timezone": timezone}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/config/getTimezones", tags=["Config"], operation_id="get_timezone_list")
-async def getTimezones():
-    try:
-        timezones = []
-        base_path = "/usr/share/zoneinfo"
-        for root, dirs, files in os.walk(base_path):
-            # Skip posix and right directories
-            if "posix" in root or "right" in root:
-                continue
-
-            for file in files:
-                full_path = os.path.join(root, file)
-                # Get relative path from zoneinfo directory
-                rel_path = os.path.relpath(full_path, base_path)
-                # Skip hidden files and non-timezone files
-                if not file.startswith(".") and "." not in file:
-                    timezones.append(rel_path)
-
-        return sorted(timezones)  # Return sorted list for better readability
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/config/getTimezone", tags=["Config"], operation_id="get_current_timezone")
-async def getTimezone():
-    try:
-        sowh = subprocess.check_output(["timedatectl", "show"])
-        for line in sowh.decode().splitlines():
-            if "Timezone" in line:
-                return line.split("=")[1]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/config/getHostname", tags=["Config"], operation_id="get_system_hostname")
-async def getHostname(hostname: str):
-    with open("/etc/hostname", "r") as f:
-        return f.read().strip()
+
+
+
+
+

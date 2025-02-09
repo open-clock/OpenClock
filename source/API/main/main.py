@@ -12,6 +12,7 @@ from microsoft_api import router as ms_router, ms_refresh_token_loop
 from untis_api import router as untis_router, untis_update_loop
 from network_api import router as network_router
 from config_api import router as config_router
+from system_api import router as system_router
 from db import DB, SECURE_DB, origins
 
 
@@ -112,3 +113,4 @@ app.include_router(ms_router)
 app.include_router(untis_router)
 app.include_router(network_router)
 app.include_router(config_router)
+app.include_router(system_router)

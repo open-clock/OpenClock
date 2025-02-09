@@ -54,24 +54,25 @@ async def set_untis_session() -> bool:
         return False
 
 
-async def set_timetable(dayRange: int = 10) -> bool:
-    """Update timetable data."""
-    if DB["untis_session"] is None:
-        logging.error("No active Untis session")
-        return False
+async def set_timetable(dayRange: int) -> bool:
+    global DB
+
+    if DB["session"] is None:
+        setSession()
+
+    now: datetime.date = datetime.datetime.now()
 
     try:
-        now = datetime.datetime.now()
-        timetable = DB["untis_session"].timetable(
-            start=now,
-            end=now + datetime.timedelta(days=dayRange),
-            teacher=SECURE_DB["untis_creds"].username,
+        print(
+            f"Fetching timetable from {now} to {now + datetime.timedelta(days=dayRange)}"
         )
-        DB["timeTable"] = sorted(timetable, key=lambda x: x.start)
-        logging.info(f"Successfully fetched {len(DB['timeTable'])} entries")
+        timetable = DB["session"].my_timetable(
+            start=now, end=now + datetime.timedelta(days=dayRange)
+        )
+        DB["timeTable"] = sorted(timetable, key=lambda x: x.start, reverse=False)
         return True
     except Exception as e:
-        logging.error(f"Failed to set timetable: {e}")
+        print(f"Failed to set timetable: {e}")
         return False
 
 
@@ -116,13 +117,13 @@ async def untis_update_loop():
 
 # --- API Endpoints ---
 @router.post("/set-cred")
-async def set_untis_creds(cred: credentials):
-    """Set Untis credentials."""
-    SECURE_DB["untis_creds"] = cred
-    with open("creds.json", "w") as f:
-        json.dump(cred.dict(), f, indent=2)
-    return {"status": "success"}
+async def setCreds(cred: credentials):
+    global SECURE_DB
 
+    json_object = json.dumps(SECURE_DB["untis_creds"].dict(), indent=2)
+    with open("creds.json", "w") as outfile:
+        outfile.write(json_object)
+    return SECURE_DB["untis_creds"]
 
 @router.get("/timetable")
 async def get_timetable(dayRange: int = 1):
