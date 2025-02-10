@@ -15,6 +15,8 @@ import {
     AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Input } from "../ui/input";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
+import { HelpCircle } from "lucide-react";
 
 const hostnameSchema = z.object({
     hostname: z
@@ -153,7 +155,20 @@ export default function DeviceSettingsPage() {
                 Configure how your device should behave.
             </p>
             <div className="flex items-center space-x-2">
-                <Label htmlFor="wallmounted">Wall mounted</Label>
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <div className="flex items-center space-x-2">
+                                <Label htmlFor="wallmounted" className="text-md">Wall mounted</Label>
+                                <HelpCircle className="w-5 h-5 text-light-secondary dark:text-dark-secondary" />
+                            </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p className="text-center">Enable this option if you want to mount your device on a wall.</p>
+                            <p className="text-center">Changes the orientation of the display.</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
                 <Switch id="wallmounted" checked={wallMounted} onCheckedChange={(checked) => {
                     setWallMounted(checked);
                     wallmountMutation.mutate(checked);
@@ -177,7 +192,19 @@ export default function DeviceSettingsPage() {
                         <AccordionTrigger>Advanced</AccordionTrigger>
                         <AccordionContent>
                             <div className="flex items-center space-x-2">
-                                <Label htmlFor="debug">Debug</Label>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <div className="flex items-center space-x-2">
+                                                <Label htmlFor="debug" className="text-md">Debug</Label>
+                                                <HelpCircle className="w-5 h-5 text-light-secondary dark:text-dark-secondary" />
+                                            </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p className="text-center">Save more verbose logs and display debug information.</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
                                 <Switch id="debug" checked={debug} onCheckedChange={(checked) => {
                                     setDebug(checked);
                                     debugMutation.mutate(checked);

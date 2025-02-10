@@ -24,7 +24,7 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>
 
-export default function UntisLoginDialogContent({ setUntisOpen }: { setUntisOpen: (value: boolean) => void }) {
+export default function UntisLoginDialogContent({ setUntisOpen, setUntisComplete }: { setUntisOpen: (value: boolean) => void, setUntisComplete: (value: boolean) => void }) {
   const [error, setError] = useState<string | null>(null)
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginFormData>({
@@ -52,6 +52,7 @@ export default function UntisLoginDialogContent({ setUntisOpen }: { setUntisOpen
     onSuccess: () => {
       setError(null)
       // Handle successful login here
+      setUntisComplete(true)
       setUntisOpen(false)
     }
   })
