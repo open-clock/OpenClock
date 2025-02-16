@@ -3,8 +3,9 @@ import dbus
 import asyncio
 import logging
 import time
+import traceback
 from typing import List, Dict
-from source.API.dataClasses import NetworkCredentials
+from dataClasses import NetworkCredentials
 from db import DB
 
 router = APIRouter(prefix="/network", tags=["Network"])
@@ -43,13 +44,11 @@ def get_wifi_device():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-
-# --- Endpoints --- 
+# --- Endpoints ---
 
 
 @router.get("/scan")
 async def scan_networks():
-  async def scan_networks():
     """Scan for available WiFi networks."""
     try:
         if not DB["bus"]:
@@ -84,7 +83,10 @@ async def scan_networks():
 
                 if ssid:  # Only add if SSID exists
                     networks.append(
-                        {"ssid": bytes(ssid).decode("utf-8"), "strength": int(strength)}
+                        {
+                            "ssid": bytes(ssid).decode("utf-8"),
+                            "strength": int(strength),
+                        }
                     )
             except Exception as e:
                 logging.warning(f"Failed to get AP info: {e}")
@@ -201,4 +203,10 @@ async def connect_to_network(credentials: NetworkCredentials):
         return {"status": "success", "message": f"Connected to {credentials.ssid}"}
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        tb = traceback.extract_tb(e.__traceback__)
+        filename, line_no, func, text = tb[-1]
+        error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
+        logging.error(f"Network connection error: {str(e)} at {error_loc}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to connect: {str(e)} at {error_loc}"
+        )

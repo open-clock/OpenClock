@@ -3,9 +3,10 @@ import msal
 import logging
 import asyncio
 import aiohttp
-from typing import List, Dict, Optional
+import traceback
+from typing import List, Dict
 from db import DB, SECURE_DB
-from source.API.dataClasses import EmailMessage
+from dataClasses import EmailMessage
 
 router = APIRouter(prefix="/microsoft", tags=["Microsoft"])
 
@@ -24,17 +25,29 @@ async def initiate_ms_login():
             "message": flow["message"],
         }
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        tb = traceback.extract_tb(e.__traceback__)
+        filename, line_no, func, text = tb[-1]
+        error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
+        logging.error(f"Microsoft login error: {str(e)} at {error_loc}")
+        raise HTTPException(
+            status_code=500, detail=f"Microsoft login failed: {str(e)} at {error_loc}"
+        )
 
 
 @router.get("/accounts")
 async def get_ms_accounts() -> List[Dict]:
     """Get all Microsoft accounts from cache."""
-    accounts = DB["ms_app"].get_accounts()
-    if accounts:
-        logging.info("MS Account(s) exists in cache")
-        return accounts
-    return []
+    try:
+        accounts = DB["ms_app"].get_accounts()
+        return accounts if accounts else []
+    except Exception as e:
+        tb = traceback.extract_tb(e.__traceback__)
+        filename, line_no, func, text = tb[-1]
+        error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
+        logging.error(f"Account fetch error: {str(e)} at {error_loc}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to fetch accounts: {str(e)} at {error_loc}"
+        )
 
 
 @router.get("/messages")

@@ -3,9 +3,10 @@ import webuntis
 import logging
 import asyncio
 import json
+import traceback
 import datetime
 from db import DB, SECURE_DB
-from source.API.dataClasses import credentials
+from dataClasses import credentials
 
 router = APIRouter(prefix="/untis", tags=["Untis"])
 
@@ -58,7 +59,7 @@ async def set_timetable(dayRange: int) -> bool:
     global DB
 
     if DB["session"] is None:
-        setSession()
+        set_untis_session()
 
     now: datetime.date = datetime.datetime.now()
 
@@ -125,25 +126,44 @@ async def setCreds(cred: credentials):
         outfile.write(json_object)
     return SECURE_DB["untis_creds"]
 
+
 @router.get("/timetable")
 async def get_timetable(dayRange: int = 1):
     """Get timetable entries."""
-    output = {}
-    sorted_timetable = sorted(DB["timeTable"], key=lambda t: t.start)
-    for i, t in enumerate(sorted_timetable):
-        if i > 1:
-            output[t.studentGroup] = (
-                t.start.strftime("%H:%M"),
-                t.end.strftime("%H:%M"),
-            )
-    return output
+    try:
+        output = {}
+        sorted_timetable = sorted(DB["timeTable"], key=lambda t: t.start)
+        for i, t in enumerate(sorted_timetable):
+            if i > 1:
+                output[t.studentGroup] = (
+                    t.start.strftime("%H:%M"),
+                    t.end.strftime("%H:%M"),
+                )
+        return output
+    except Exception as e:
+        tb = traceback.extract_tb(e.__traceback__)
+        filename, line_no, func, text = tb[-1]
+        error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
+        logging.error(f"Timetable error: {str(e)} at {error_loc}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get timetable: {str(e)} at {error_loc}"
+        )
 
 
 @router.get("/status")
 async def get_untis_status():
     """Get Untis connection status."""
-    return {
-        "session": DB["untis_state"],
-        "timetable_entries": len(DB["timeTable"]),
-        "holidays": len(DB["holidays"]),
-    }
+    try:
+        return {
+            "session": DB["untis_state"],
+            "timetable_entries": len(DB["timeTable"]),
+            "holidays": len(DB["holidays"]),
+        }
+    except Exception as e:
+        tb = traceback.extract_tb(e.__traceback__)
+        filename, line_no, func, text = tb[-1]
+        error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
+        logging.error(f"Status error: {str(e)} at {error_loc}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get status: {str(e)} at {error_loc}"
+        )

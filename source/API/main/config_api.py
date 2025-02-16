@@ -3,9 +3,10 @@ import json
 import subprocess
 import logging
 import os
+import traceback
 from enum import Enum
 from pathlib import Path
-from source.API.dataClasses import ConfigModel, ClockType
+from dataClasses import ConfigModel, ClockType
 from db import DB
 
 router = APIRouter(prefix="/config", tags=["Config"])
@@ -24,18 +25,26 @@ def get_config_path() -> Path:
     return Path(__file__).parent / "config.json"
 
 
+def get_relative_path(filename: str) -> str:
+    """Get path relative to this file's directory."""
+    return Path(__file__).parent / filename
+
+
 async def set_configFile():
     """Save config to file with enum handling."""
     global DB
     try:
         with open(get_relative_path("config.json"), "w") as f:
             config_dict = DB["config"]
-            # Convert enum to string value
             f.write(DB["config"].toJSON())
     except Exception as e:
-        logging.error(f"Error saving config file: {e}")
-        raise
-
+        tb = traceback.extract_tb(e.__traceback__)
+        filename, line_no, func, text = tb[-1]
+        error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
+        logging.error(f"Error saving config file: {str(e)} at {error_loc}")
+        raise HTTPException(
+            status_code=500, detail=f"Error saving config: {str(e)} at {error_loc}"
+        )
 
 
 async def load_config() -> ConfigModel:
@@ -46,7 +55,7 @@ async def load_config() -> ConfigModel:
             default_config = ConfigModel(
                 model=ClockType.Mini, setup=False, wallmounted=False
             )
-            await save_config(default_config)
+            await set_configDB(default_config)
             return default_config
 
         with open(config_path, "r") as f:
@@ -57,7 +66,7 @@ async def load_config() -> ConfigModel:
         default_config = ConfigModel(
             model=ClockType.Mini, setup=False, wallmounted=False
         )
-        await save_config(default_config)
+        await set_configDB(default_config)
         return ConfigModel(model=ClockType.Mini, setup=False, wallmounted=False)
     except Exception as e:
         logging.error(f"Failed to load config: {e}")
@@ -79,7 +88,7 @@ async def set_configDB():
             DB["config"] = default_config
 
             # Save default config
-            await save_config(default_config)
+            await set_configDB(default_config)
 
             logging.info("Created default config")
             return
@@ -112,8 +121,8 @@ async def update_config(config: ConfigModel):
         logging.error(f"Failed to update config: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-    
-@app.get("/", operation_id="get_full_config")
+
+@router.get("/", operation_id="get_full_config")
 async def get_config():
     """Get current configuration."""
     try:
@@ -127,7 +136,7 @@ async def get_config():
 
 @router.post("/get")
 async def get_config():
-    global DB   
+    global DB
     return DB["config"]
 
 
@@ -164,7 +173,7 @@ async def set_debug(debug: bool):
     """Update debug status."""
     try:
         DB["config"].debug = debug
-        await save_config(DB["config"])
+        await set_configDB(DB["config"])
         return {"status": "success", "debug": debug}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -181,7 +190,7 @@ async def set_hostname(hostname: str):
     """Update hostname."""
     try:
         DB["config"].hostname = hostname
-        await save_config(DB["config"])
+        await set_configDB(DB["config"])
         try:
             subprocess.run(["hostnamectl", "set-hostname", hostname], check=True)
         except subprocess.CalledProcessError as e:
@@ -198,7 +207,7 @@ async def set_timezone(timezone: str):
         if not os.path.exists(f"/usr/share/zoneinfo/{timezone}"):
             raise HTTPException(status_code=400, detail="Invalid timezone")
         DB["config"].timezone = timezone
-        await save_config(DB["config"])
+        await set_configDB(DB["config"])
         try:
             subprocess.run(["timedatectl", "set-timezone", timezone], check=True)
         except subprocess.CalledProcessError as e:
@@ -207,7 +216,6 @@ async def set_timezone(timezone: str):
         return {"status": "success", "timezone": timezone}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 
 @router.get("/getTimezone", operation_id="get_current_timezone")
@@ -219,7 +227,8 @@ async def getTimezone():
                 return line.split("=")[1]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
+
+
 @router.get("/getTimezones", operation_id="get_timezone_list")
 async def getTimezones():
     try:

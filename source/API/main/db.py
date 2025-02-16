@@ -1,4 +1,4 @@
-from source.API.dataClasses import *
+from dataClasses import *
 import msal
 import webuntis
 import os

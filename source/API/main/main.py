@@ -2,11 +2,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import asyncio
+import traceback
 import json
 import logging
 from enum import Enum
 from pathlib import Path
-from source.API.dataClasses import *
+from dataClasses import *
 
 from microsoft_api import router as ms_router, ms_refresh_token_loop
 from untis_api import router as untis_router, untis_update_loop
@@ -32,45 +33,33 @@ class EnumEncoder(json.JSONEncoder):
 
 
 async def save_state():
-    """Save runtime and secure state to disk."""
+    """Save application state to file."""
     try:
-        # Save runtime state
-        with open(get_relative_path("runtime_state.json"), "w") as f:
-            json.dump(DB, f, indent=2, cls=EnumEncoder)
-
-        # Save secure data
-        secure_data = {
-            "untis_creds": (
-                SECURE_DB["untis_creds"].dict() if SECURE_DB["untis_creds"] else None
-            ),
-            "token_cache": DB["token_cache"].serialize() if DB["token_cache"] else None,
-        }
-        with open(get_relative_path("secure_state.json"), "w") as f:
-            json.dump(secure_data, f, indent=2)
-
+        state = {"microsoft": DB.get("microsoft", {}), "untis": DB.get("untis", {})}
+        with open(get_relative_path("state.json"), "w") as f:
+            json.dump(state, f, cls=EnumEncoder, indent=4)
+        logging.info("State saved successfully")
     except Exception as e:
-        logging.error(f"Failed to save state: {e}")
+        tb = traceback.extract_tb(e.__traceback__)
+        filename, line_no, func, text = tb[-1]
+        error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
+        logging.error(f"Failed to save state: {str(e)} at {error_loc}")
+        raise RuntimeError(f"Failed to save state: {str(e)} at {error_loc}")
 
 
 async def load_state():
-    """Load runtime and secure state from disk."""
+    """Load application state from file."""
     try:
-        # Load runtime state
-        if Path("runtime_state.json").exists():
-            with open(get_relative_path("runtime_state.json"), "r") as f:
-                DB.update(json.load(f))
-
-        # Load secure state
-        if Path("secure_state.json").exists():
-            with open(get_relative_path("secure_state.json"), "r") as f:
-                secure_data = json.load(f)
-                if secure_data.get("untis_creds"):
-                    SECURE_DB["untis_creds"] = credentials(**secure_data["untis_creds"])
-                if secure_data.get("token_cache"):
-                    DB["token_cache"].deserialize(secure_data["token_cache"])
-
+        with open(get_relative_path("state.json"), "r") as f:
+            state = json.load(f)
+            DB["microsoft"] = state.get("microsoft", {})
+            DB["untis"] = state.get("untis", {})
+        logging.info("State loaded successfully")
     except Exception as e:
-        logging.error(f"Failed to load state: {e}")
+        tb = traceback.extract_tb(e.__traceback__)
+        filename, line_no, func, text = tb[-1]
+        error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
+        logging.error(f"Failed to load state: {str(e)} at {error_loc}")
 
 
 # --- Lifespan and App Setup ---

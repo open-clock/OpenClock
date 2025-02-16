@@ -1,14 +1,13 @@
 from fastapi import APIRouter, HTTPException
-import webuntis
+import os
+import subprocess
+import traceback
 import logging
-import asyncio
-import json
-import datetime
-from db import DB, SECURE_DB
-from source.API.dataClasses import credentials
+from asyncio.subprocess import create_subprocess_shell
+from db import DB
+from dataClasses import command, model
 
-router = APIRouter(prefix="/", tags=["System"])
-
+router = APIRouter(prefix="/system", tags=["System"])
 
 
 # --- Endpoints ---
@@ -16,32 +15,36 @@ router = APIRouter(prefix="/", tags=["System"])
 
 @router.get("/reboot", response_model=dict)
 async def reboot_system():
-    """Initiate system reboot.
-
-    Returns:
-        dict: Status message indicating reboot progress
-    """
+    """Initiate system reboot."""
     try:
-        os.system("reboot")
+        os.system("sudo shutdown -r now")
         return {"status": "success", "message": "System is rebooting..."}
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        tb = traceback.extract_tb(e.__traceback__)
+        filename, line_no, func, text = tb[-1]
+        error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
+        logging.error(f"Reboot error: {str(e)} at {error_loc}")
+        raise HTTPException(
+            status_code=500, detail=f"Reboot failed: {str(e)} at {error_loc}"
+        )
 
 
 @router.get("/shutdown", response_model=dict)
 async def shutdown_system():
-    """Initiate system shutdown.
-
-    Returns:
-        dict: Status message indicating shutdown progress
-    """
+    """Initiate system shutdown."""
     try:
-        os.system("poweroff")
+        os.system("sudo shutdown -h now")
         return {"status": "success", "message": "System is shutting down..."}
     except Exception as e:
-        return {"status": "error", "message": str(e)}
-    
-    
+        tb = traceback.extract_tb(e.__traceback__)
+        filename, line_no, func, text = tb[-1]
+        error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
+        logging.error(f"Shutdown error: {str(e)} at {error_loc}")
+        raise HTTPException(
+            status_code=500, detail=f"Shutdown failed: {str(e)} at {error_loc}"
+        )
+
+
 @router.post("/run")
 async def run_terminal(command: command) -> dict:
     try:
@@ -68,4 +71,3 @@ async def get_status() -> model:
         model=DB["config"].model,
         wallmounted=DB["config"].wallmounted,
     )
-
