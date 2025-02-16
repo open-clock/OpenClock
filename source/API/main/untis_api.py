@@ -116,6 +116,27 @@ async def untis_update_loop():
         await asyncio.sleep(300)
 
 
+# --- Utility Functions ---
+def handle_error(e: Exception, message: str) -> HTTPException:
+    """Utility function for consistent error handling."""
+    tb = traceback.extract_tb(e.__traceback__)
+    filename, line_no, func, text = tb[-1]
+    error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
+    logging.error(f"{message}: {str(e)} at {error_loc}")
+    return HTTPException(status_code=500, detail=f"{message}: {str(e)} at {error_loc}")
+
+
+async def save_credentials(creds: dict):
+    """Save Untis credentials to file."""
+    try:
+        json_object = json.dumps(creds, indent=4)
+        with open("creds.json", "w") as outfile:
+            outfile.write(json_object)
+        return SECURE_DB["untis_creds"]
+    except Exception as e:
+        raise handle_error(e, "Failed to save credentials")
+
+
 # --- API Endpoints ---
 @router.post("/set-cred")
 async def setCreds(cred: credentials):
@@ -141,13 +162,7 @@ async def get_timetable(dayRange: int = 1):
                 )
         return output
     except Exception as e:
-        tb = traceback.extract_tb(e.__traceback__)
-        filename, line_no, func, text = tb[-1]
-        error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
-        logging.error(f"Timetable error: {str(e)} at {error_loc}")
-        raise HTTPException(
-            status_code=500, detail=f"Failed to get timetable: {str(e)} at {error_loc}"
-        )
+        raise handle_error(e, "Failed to get timetable")
 
 
 @router.get("/status")
@@ -160,10 +175,4 @@ async def get_untis_status():
             "holidays": len(DB["holidays"]),
         }
     except Exception as e:
-        tb = traceback.extract_tb(e.__traceback__)
-        filename, line_no, func, text = tb[-1]
-        error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
-        logging.error(f"Status error: {str(e)} at {error_loc}")
-        raise HTTPException(
-            status_code=500, detail=f"Failed to get status: {str(e)} at {error_loc}"
-        )
+        raise handle_error(e, "Failed to get Untis status")

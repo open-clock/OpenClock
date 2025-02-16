@@ -11,6 +11,15 @@ from dataClasses import EmailMessage
 router = APIRouter(prefix="/microsoft", tags=["Microsoft"])
 
 
+def handle_error(e: Exception, message: str) -> HTTPException:
+    """Utility function for consistent error handling."""
+    tb = traceback.extract_tb(e.__traceback__)
+    filename, line_no, func, text = tb[-1]
+    error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
+    logging.error(f"{message}: {str(e)} at {error_loc}")
+    return HTTPException(status_code=500, detail=f"{message}: {str(e)} at {error_loc}")
+
+
 @router.get("/login")
 async def initiate_ms_login():
     """Start Microsoft login flow."""
@@ -25,13 +34,7 @@ async def initiate_ms_login():
             "message": flow["message"],
         }
     except Exception as e:
-        tb = traceback.extract_tb(e.__traceback__)
-        filename, line_no, func, text = tb[-1]
-        error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
-        logging.error(f"Microsoft login error: {str(e)} at {error_loc}")
-        raise HTTPException(
-            status_code=500, detail=f"Microsoft login failed: {str(e)} at {error_loc}"
-        )
+        raise handle_error(e, "Microsoft login failed")
 
 
 @router.get("/accounts")
@@ -41,17 +44,11 @@ async def get_ms_accounts() -> List[Dict]:
         accounts = DB["ms_app"].get_accounts()
         return accounts if accounts else []
     except Exception as e:
-        tb = traceback.extract_tb(e.__traceback__)
-        filename, line_no, func, text = tb[-1]
-        error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
-        logging.error(f"Account fetch error: {str(e)} at {error_loc}")
-        raise HTTPException(
-            status_code=500, detail=f"Failed to fetch accounts: {str(e)} at {error_loc}"
-        )
+        raise handle_error(e, "Failed to fetch accounts")
 
 
 @router.get("/messages")
-async def get_ms_messages() -> List[EmailMessage]:
+async def get_ms_messages():
     """Get messages from Microsoft Graph."""
     try:
         if not DB["ms_result"]:
@@ -85,6 +82,17 @@ async def get_ms_messages() -> List[EmailMessage]:
     except Exception as e:
         logging.error(f"Failed to get messages: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/logout")
+async def logout_ms_account():
+    """Logout from Microsoft account."""
+    try:
+        DB["ms_app"].remove_account(DB["account"])
+        DB["account"] = None
+        return {"status": "success", "message": "Logged out successfully"}
+    except Exception as e:
+        raise handle_error(e, "Logout failed")
 
 
 async def ms_refresh_token_loop():

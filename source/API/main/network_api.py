@@ -11,14 +11,20 @@ from db import DB
 router = APIRouter(prefix="/network", tags=["Network"])
 
 
-# --- Help Functions ----
+def handle_error(e: Exception, message: str) -> HTTPException:
+    """Utility function for consistent error handling."""
+    tb = traceback.extract_tb(e.__traceback__)
+    filename, line_no, func, text = tb[-1]
+    error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
+    logging.error(f"{message}: {str(e)} at {error_loc}")
+    return HTTPException(status_code=500, detail=f"{message}: {str(e)} at {error_loc}")
 
 
 def get_wifi_device():
     """Get WiFi device with error handling."""
     try:
         if not DB["bus"]:
-            raise HTTPException(status_code=500, detail="DBus not initialized")
+            raise ValueError("DBus not initialized")
 
         nm = DB["bus"].get_object(
             "org.freedesktop.NetworkManager", "/org/freedesktop/NetworkManager"
@@ -34,29 +40,21 @@ def get_wifi_device():
             )
             if device_type == 2:  # WiFi device
                 return device_path
-
-        raise HTTPException(status_code=404, detail="No WiFi device found")
-    except dbus.exceptions.DBusException as e:
-        logging.error(f"DBus error: {e}")
-        raise HTTPException(status_code=500, detail="Network manager not available")
+        raise ValueError("No WiFi device found")
     except Exception as e:
-        logging.error(f"Unexpected error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise handle_error(e, "Failed to get WiFi device")
 
 
-# --- Endpoints ---
-
-
-@router.get("/scan")
+@router.get("/scan", response_model=List[Dict])
 async def scan_networks():
     """Scan for available WiFi networks."""
     try:
+        device_path = get_wifi_device()
         if not DB["bus"]:
             raise HTTPException(
                 status_code=500, detail="Network system not initialized"
             )
 
-        device_path = get_wifi_device()
         device = DB["bus"].get_object("org.freedesktop.NetworkManager", device_path)
         wireless = dbus.Interface(
             device, "org.freedesktop.NetworkManager.Device.Wireless"
@@ -97,8 +95,7 @@ async def scan_networks():
     except HTTPException:
         raise
     except Exception as e:
-        logging.error(f"Network scan failed: {e}")
-        return {"networks": [], "error": str(e)}
+        raise handle_error(e, "Network scan failed")
 
 
 @router.get("/access-points")
@@ -144,9 +141,11 @@ async def get_access_points():
 
 
 @router.post("/connect")
-async def connect_to_network(credentials: NetworkCredentials):
-    global DB
+async def connect_network(credentials: NetworkCredentials):
+    """Connect to WiFi network."""
     try:
+        device_path = get_wifi_device()
+        global DB
         # Get NetworkManager interface
         nm = DB["bus"].get_object(
             "org.freedesktop.NetworkManager", "/org/freedesktop/NetworkManager"
@@ -203,10 +202,4 @@ async def connect_to_network(credentials: NetworkCredentials):
         return {"status": "success", "message": f"Connected to {credentials.ssid}"}
 
     except Exception as e:
-        tb = traceback.extract_tb(e.__traceback__)
-        filename, line_no, func, text = tb[-1]
-        error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
-        logging.error(f"Network connection error: {str(e)} at {error_loc}")
-        raise HTTPException(
-            status_code=500, detail=f"Failed to connect: {str(e)} at {error_loc}"
-        )
+        raise handle_error(e, "Network connection failed")

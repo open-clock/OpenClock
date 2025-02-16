@@ -22,12 +22,26 @@ class EnumEncoder(json.JSONEncoder):
 # --- Helper Functions ---
 def get_config_path() -> Path:
     """Get path to config file."""
-    return Path(__file__).parent / "config.json"
+    try:
+        return Path(__file__).parent / "config.json"
+    except Exception as e:
+        tb = traceback.extract_tb(e.__traceback__)
+        filename, line_no, func, text = tb[-1]
+        error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
+        logging.error(f"Failed to get config path: {str(e)} at {error_loc}")
+        raise RuntimeError(f"Failed to get config path: {str(e)} at {error_loc}")
 
 
-def get_relative_path(filename: str) -> str:
+def get_relative_path(filename: str) -> Path:
     """Get path relative to this file's directory."""
-    return Path(__file__).parent / filename
+    try:
+        return Path(__file__).parent / filename
+    except Exception as e:
+        tb = traceback.extract_tb(e.__traceback__)
+        filename, line_no, func, text = tb[-1]
+        error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
+        logging.error(f"Failed to get relative path: {str(e)} at {error_loc}")
+        raise RuntimeError(f"Failed to get relative path: {str(e)} at {error_loc}")
 
 
 async def set_configFile():
@@ -89,7 +103,6 @@ async def set_configDB():
 
             # Save default config
             await set_configDB(default_config)
-
             logging.info("Created default config")
             return
 
@@ -100,9 +113,15 @@ async def set_configDB():
             logging.info("Config loaded successfully")
 
     except Exception as e:
-        logging.error(f"Failed to load config: {e}")
+        tb = traceback.extract_tb(e.__traceback__)
+        filename, line_no, func, text = tb[-1]
+        error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
+        logging.error(f"Failed to load config: {str(e)} at {error_loc}")
         # Use default config on error
         DB["config"] = ConfigModel(model=ClockType.Mini, setup=False, wallmounted=False)
+        raise HTTPException(
+            status_code=500, detail=f"Failed to load config: {str(e)} at {error_loc}"
+        )
 
 
 # --- API Endpoints ---
@@ -112,9 +131,9 @@ async def set_configDB():
 async def update_config(config: ConfigModel):
     """Update system configuration."""
     try:
-        DB["config"] = config.dict()
+        DB["config"] = config.model_dump()
         # Save to file
-        with open(CONFIG_FILE, "w") as f:
+        with open(get_config_path(), "w") as f:
             json.dump(DB["config"], f, indent=2)
         return {"status": "success", "message": "Configuration updated"}
     except Exception as e:

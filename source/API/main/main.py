@@ -65,41 +65,71 @@ async def load_state():
 # --- Lifespan and App Setup ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Load saved state
-    await load_state()
+    """Startup and shutdown events."""
+    try:
+        # Start background tasks
+        ms_task = asyncio.create_task(ms_refresh_token_loop())
+        untis_task = asyncio.create_task(untis_update_loop())
+        yield
 
-    # Start background tasks
-    ms_task = asyncio.create_task(ms_refresh_token_loop())
-    untis_task = asyncio.create_task(untis_update_loop())
+        # Save state before shutdown
+        await save_state()
 
-    yield
+        # Cleanup tasks
+        for task in [ms_task, untis_task]:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                tb = traceback.extract_tb(e.__traceback__)
+                filename, line_no, func, text = tb[-1]
+                error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
+                logging.error(f"Task cleanup error: {str(e)} at {error_loc}")
 
-    # Save state before shutdown
-    await save_state()
-
-    # Cleanup tasks
-    for task in [ms_task, untis_task]:
-        task.cancel()
-        try:
-            await task
-        except asyncio.CancelledError:
-            pass
+    except Exception as e:
+        tb = traceback.extract_tb(e.__traceback__)
+        filename, line_no, func, text = tb[-1]
+        error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
+        logging.error(f"Lifespan error: {str(e)} at {error_loc}")
+        raise RuntimeError(f"Lifespan error: {str(e)} at {error_loc}")
 
 
 app = FastAPI(lifespan=lifespan)
 
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+try:
+    # Add CORS middleware
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
-# Include routers
-app.include_router(ms_router)
-app.include_router(untis_router)
-app.include_router(network_router)
-app.include_router(config_router)
-app.include_router(system_router)
+    # Include routers
+    routers = [
+        (ms_router, "Microsoft API"),
+        (untis_router, "Untis API"),
+        (network_router, "Network API"),
+        (config_router, "Config API"),
+        (system_router, "System API"),
+    ]
+
+    for router, name in routers:
+        try:
+            app.include_router(router)
+        except Exception as e:
+            tb = traceback.extract_tb(e.__traceback__)
+            filename, line_no, func, text = tb[-1]
+            error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
+            logging.error(f"Failed to include {name}: {str(e)} at {error_loc}")
+            raise RuntimeError(f"Router inclusion error: {str(e)} at {error_loc}")
+
+except Exception as e:
+    tb = traceback.extract_tb(e.__traceback__)
+    filename, line_no, func, text = tb[-1]
+    error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
+    logging.error(f"App initialization error: {str(e)} at {error_loc}")
+    raise RuntimeError(f"App initialization error: {str(e)} at {error_loc}")
