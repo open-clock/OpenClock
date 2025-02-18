@@ -20,11 +20,30 @@ def handle_error(e: Exception, message: str) -> HTTPException:
     return HTTPException(status_code=500, detail=f"{message}: {str(e)} at {error_loc}")
 
 
+def init_msal_app():
+    """Initialize MSAL application."""
+    try:
+        if "ms_app" not in DB or not DB["ms_app"]:
+            DB["ms_app"] = msal.PublicClientApplication(
+                client_id=SECURE_DB["client_id"],
+                authority=SECURE_DB["authority"],
+                token_cache=DB["token_cache"],
+            )
+        return DB["ms_app"]
+    except Exception as e:
+        tb = traceback.extract_tb(e.__traceback__)
+        filename, line_no, func, text = tb[-1]
+        error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
+        logging.error(f"MSAL initialization failed: {str(e)} at {error_loc}")
+        raise RuntimeError(f"MSAL initialization failed: {str(e)} at {error_loc}")
+
+
 @router.get("/login")
 async def initiate_ms_login():
     """Start Microsoft login flow."""
     try:
-        flow = DB["ms_app"].initiate_device_flow(scopes=SECURE_DB["scopes"])
+        app = init_msal_app()
+        flow = app.initiate_device_flow(scopes=SECURE_DB["scopes"])
         if "user_code" not in flow:
             raise HTTPException(status_code=500, detail="Failed to create device flow")
         DB["ms_flow"] = flow
