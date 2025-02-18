@@ -127,18 +127,30 @@ async def set_configDB():
 # --- API Endpoints ---
 
 
-@router.post("/config", operation_id="update_full_config")
+@router.post("/", operation_id="update_full_config")
 async def update_config(config: ConfigModel):
     """Update system configuration."""
     try:
-        DB["config"] = config.model_dump()
-        # Save to file
+        # Convert to dict and handle enum serialization
+        config_dict = config.model_dump()
+        config_dict["model"] = config.model.value
+
+        # Update DB
+        DB["config"] = config
+
+        # Save to file with custom encoder
         with open(get_config_path(), "w") as f:
-            json.dump(DB["config"], f, indent=2)
+            json.dump(config_dict, f, cls=EnumEncoder, indent=2)
+
         return {"status": "success", "message": "Configuration updated"}
     except Exception as e:
-        logging.error(f"Failed to update config: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        tb = traceback.extract_tb(e.__traceback__)
+        filename, line_no, func, text = tb[-1]
+        error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
+        logging.error(f"Failed to update config: {str(e)} at {error_loc}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to update config: {str(e)} at {error_loc}"
+        )
 
 
 @router.get("/", operation_id="get_full_config")
@@ -151,12 +163,6 @@ async def get_config():
     except Exception as e:
         logging.error(f"Failed to get config: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/get")
-async def get_config():
-    global DB
-    return DB["config"]
 
 
 @router.get("/reset")
@@ -219,7 +225,7 @@ async def set_hostname(hostname: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/config/setTimezone")
+@router.post("/setTimezone")
 async def set_timezone(timezone: str):
     """Update timezone."""
     try:
@@ -267,5 +273,25 @@ async def getTimezones():
                     timezones.append(rel_path)
 
         return sorted(timezones)  # Return sorted list for better readability
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/setClientID")
+async def set_clientID(id: str):
+    try:
+        DB["client_id"] = id
+        await set_configDB(DB["config"])
+        return {"status": "success", "client_id": id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/setAuthority")
+async def set_Authority(authority: str):
+    try:
+        DB["authority"] = authority
+        await set_configDB(DB["authority"])
+        return {"status": "success", "authority": authority}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

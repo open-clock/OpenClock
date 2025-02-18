@@ -138,7 +138,7 @@ async def save_credentials(creds: dict):
 
 
 # --- API Endpoints ---
-@router.post("/set-cred")
+@router.post("/set-creds")
 async def setCreds(cred: credentials):
     global SECURE_DB
 

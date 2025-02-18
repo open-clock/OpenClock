@@ -9,7 +9,7 @@ This module contains all the Pydantic models and enums used for:
 
 from enum import Enum
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Dict, Any, Union
 import json
 
 # CORS allowed origins
