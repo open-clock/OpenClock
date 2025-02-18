@@ -15,6 +15,7 @@ from network_api import router as network_router
 from config_api import router as config_router
 from system_api import router as system_router
 from db import DB, SECURE_DB, origins
+from util import handle_error
 
 
 # --- Helper Functions ---
@@ -133,3 +134,15 @@ except Exception as e:
     error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
     logging.error(f"App initialization error: {str(e)} at {error_loc}")
     raise RuntimeError(f"App initialization error: {str(e)} at {error_loc}")
+
+@app.get("/status", tags=["System"])
+async def get_status() -> Dict[str, Union[bool, str]]:
+    """Get system status."""
+    try:
+        return {
+            "setup": DB["config"].setup,
+            "model": DB["config"].model,
+            "wallmounted": DB["config"].wallmounted,
+        }
+    except Exception as e:
+        raise handle_error(e, "Failed to get system status")

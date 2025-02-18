@@ -7,18 +7,9 @@ from typing import Dict, Any, Union
 from asyncio.subprocess import create_subprocess_shell
 from db import DB
 from dataClasses import command, model
+from util import handle_error
 
 router = APIRouter(prefix="/system", tags=["System"])
-
-
-def handle_error(e: Exception, message: str) -> HTTPException:
-    """Utility function for consistent error handling."""
-    tb = traceback.extract_tb(e.__traceback__)
-    filename, line_no, func, text = tb[-1]
-    error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
-    logging.error(f"{message}: {str(e)} at {error_loc}")
-    return HTTPException(status_code=500, detail=f"{message}: {str(e)} at {error_loc}")
-
 
 # --- Endpoints ---
 
@@ -56,16 +47,3 @@ async def run_terminal(command: command) -> Dict[str, Union[str, Any]]:
         return {"status": "completed", "output": output, "error": error}
     except Exception as e:
         raise handle_error(e, "Command execution failed")
-
-
-@router.get("/status")
-async def get_status() -> Dict[str, Union[bool, str]]:
-    """Get system status."""
-    try:
-        return {
-            "setup": DB["config"].setup,
-            "model": DB["config"].model,
-            "wallmounted": DB["config"].wallmounted,
-        }
-    except Exception as e:
-        raise handle_error(e, "Failed to get system status")
