@@ -8,6 +8,7 @@ from asyncio.subprocess import create_subprocess_shell
 from db import DB
 from dataClasses import command, model
 
+
 def handle_error(e: Exception, message: str) -> HTTPException:
     """Utility function for consistent error handling."""
     tb = traceback.extract_tb(e.__traceback__)

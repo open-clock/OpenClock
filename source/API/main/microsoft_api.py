@@ -1,10 +1,11 @@
 from fastapi import APIRouter, HTTPException
 import msal
 import logging
+import time
 import asyncio
 import aiohttp
 import traceback
-from typing import List, Dict
+from typing import List, Dict, Union, Optional
 from db import DB, SECURE_DB
 from dataClasses import EmailMessage
 
@@ -70,8 +71,18 @@ async def get_ms_accounts() -> List[Dict]:
 async def get_ms_messages():
     """Get messages from Microsoft Graph."""
     try:
-        if not DB["ms_result"]:
-            raise HTTPException(status_code=401, detail="Not authenticated")
+        # Check if we have an active device flow
+        if "ms_flow" not in DB or not DB["ms_flow"]:
+            raise HTTPException(status_code=401, detail="No active authentication flow")
+
+        # Attempt to acquire token if not present
+        if not DB.get("ms_result"):
+            app = init_msal_app()
+            DB["ms_result"] = app.acquire_token_by_device_flow(DB["ms_flow"])
+            if not DB["ms_result"]:
+                raise HTTPException(
+                    status_code=401, detail="Authentication not completed"
+                )
 
         headers = {"Authorization": f'Bearer {DB["ms_result"]["access_token"]}'}
 
@@ -80,6 +91,10 @@ async def get_ms_messages():
                 f'{SECURE_DB["graph_endpoint"]}/me/messages', headers=headers
             ) as response:
                 data = await response.json()
+
+                if response.status == 401:
+                    DB["ms_result"] = None  # Clear invalid token
+                    raise HTTPException(status_code=401, detail="Token expired")
 
                 if "value" not in data:
                     raise HTTPException(status_code=500, detail="Invalid response")
@@ -131,3 +146,22 @@ async def ms_refresh_token_loop():
         except Exception as e:
             logging.error(f"MS token refresh error: {e}")
         await asyncio.sleep(3600)
+
+
+@router.get("/device-flow-status")
+async def get_device_flow_status() -> Dict[str, Union[bool, Optional[float]]]:
+    """Check if there is an active device flow."""
+    try:
+        if "ms_flow" in DB and DB["ms_flow"]:
+            # Check if flow has expired
+            expires_at = DB["ms_flow"].get("expires_at", 0)
+            current_time = time.time()
+            is_active = expires_at > current_time
+
+            return {
+                "active": is_active,
+                "expires_at": expires_at if is_active else None,
+            }
+        return {"active": False, "expires_at": None}
+    except Exception as e:
+        raise handle_error(e, "Failed to get device flow status")
