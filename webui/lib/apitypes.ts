@@ -32,3 +32,10 @@ export interface Config {
     hostname: string;
     timezone: string;
 }
+
+export interface MicrosoftLoginResponse {
+    verification_uri: string;
+    user_code: string;
+    message: string;
+    expires_at: number;
+}

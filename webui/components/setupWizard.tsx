@@ -90,6 +90,12 @@ export default function SetupWizard({ clocktype }: { clocktype: ClockType }) {
       <div className="py-4 text-center">
         <Copyright clocktype={clocktype} />
       </div>
+      <Button
+        onClick={() => setCurrentStep(2)}
+        className="fixed top-4 right-4"
+      >
+        Skip
+      </Button>
     </div>
   );
 }
