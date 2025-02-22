@@ -94,6 +94,9 @@ async def initiate_ms_login():
             "verification_uri": flow["verification_uri"],
             "user_code": flow["user_code"],
             "message": flow["message"],
+            "expires_at": (
+                flow.get("expires_at", 0) if flow.get("expires_at", 0) else None
+            ),
         }
     except Exception as e:
         raise handle_error(e, "Microsoft login failed")
