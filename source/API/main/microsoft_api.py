@@ -39,6 +39,48 @@ def init_msal_app():
         raise RuntimeError(f"MSAL initialization failed: {str(e)} at {error_loc}")
 
 
+@router.post("/client-id")
+async def set_client_id(client_id: str):
+    """Set Microsoft client ID."""
+    try:
+        SECURE_DB["client_id"] = client_id
+        return {"status": "success", "message": "Client ID set successfully"}
+    except Exception as e:
+        raise handle_error(e, "Failed to set client ID")
+
+
+@router.post("/scopes")
+async def set_scopes(scopes: List[str]):
+    """Set Microsoft scopes."""
+    try:
+        SECURE_DB["scopes"] = scopes
+        return {"status": "success", "message": "Scopes set successfully"}
+    except Exception as e:
+        raise handle_error(e, "Failed to set scopes")
+
+
+router.post("/graph-endpoint")
+
+
+async def set_graph_endpoint(endpoint: str):
+    """Set Microsoft Graph endpoint."""
+    try:
+        SECURE_DB["graph_endpoint"] = endpoint
+        return {"status": "success", "message": "Graph endpoint set successfully"}
+    except Exception as e:
+        raise handle_error(e, "Failed to set graph endpoint")
+
+
+@router.post("/authority")
+async def set_authority(authority: str):
+    """Set Microsoft authority."""
+    try:
+        SECURE_DB["authority"] = authority
+        return {"status": "success", "message": "Authority set successfully"}
+    except Exception as e:
+        raise handle_error(e, "Failed to set authority")
+
+
 @router.get("/login")
 async def initiate_ms_login():
     """Start Microsoft login flow."""

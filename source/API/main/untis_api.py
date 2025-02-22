@@ -29,8 +29,8 @@ class UntisCredentialsError(Exception):
 
 
 # --- Session Management ---
-async def set_untis_session() -> bool:
-    """Initialize Untis session with error handling."""
+async def set_untis_session():
+    """Initialize Untis session with context manager."""
     try:
         if not SECURE_DB.get("untis_creds"):
             raise UntisCredentialsError("No credentials configured")
@@ -48,10 +48,8 @@ async def set_untis_session() -> bool:
                     school=creds.school,
                     useragent="OpenClock",
                 ).login() as session:
-                    # Test connection
-                    DB["untis_session"] = session
-                    DB["untis_state"] = "connected"
-                    logging.info("Untis session created successfully")
+                    # Test connection with student parameter
+                    DB["untis_state"] = True
                     return True
 
             except Exception as e:
@@ -62,8 +60,8 @@ async def set_untis_session() -> bool:
                 await asyncio.sleep(delay)
 
     except Exception as e:
-        DB["untis_state"] = "error"
-        logging.error(f"Failed to create Untis session: {e}")
+        DB["untis_state"] = False
+        logging.error(f"Failed to create Untis session: {str(e)}")
         return False
 
 
@@ -151,58 +149,6 @@ def validate_server_url(server: str) -> str:
         return ""
 
 
-def init_untis_session():
-    """Initialize Untis session with credentials check and retry."""
-    try:
-        if not SECURE_DB.get("untis_creds"):
-            logging.debug("No Untis credentials found")
-            DB["untis_state"] = "disconnected"
-            return None
-
-        creds = SECURE_DB["untis_creds"]
-        if not all([creds.username, creds.password, creds.server, creds.school]):
-            logging.error("Missing required credentials")
-            DB["untis_state"] = "disconnected"
-            return None
-
-        server = validate_server_url(creds.server)
-        logging.info(f"Connecting to Untis server: {server}")
-
-        # Create new session
-        session = webuntis.Session(
-            username=creds.username,
-            password=creds.password,
-            server=server,
-            school=creds.school,
-            useragent="OpenClock",
-        )
-
-        # Test login explicitly with retry
-        retry_count = 3
-        while retry_count > 0:
-            try:
-                session.login()
-                DB["untis_session"] = session
-                DB["untis_state"] = "connected"
-                logging.info("Untis login successful")
-                return session
-            except Exception as e:
-                retry_count -= 1
-                if retry_count == 0:
-                    raise e
-                logging.warning(f"Retrying login... ({3-retry_count}/3)")
-                time.sleep(1)
-
-    except webuntis.errors.BadCredentialsError as e:
-        DB["untis_state"] = "disconnected"
-        logging.error(f"Invalid credentials: {str(e)}")
-        return None
-    except Exception as e:
-        DB["untis_state"] = "disconnected"
-        logging.error(f"Session initialization failed: {str(e)}")
-        return None
-
-
 # --- API Endpoints ---
 @router.post("/set-creds")
 async def setCreds(cred: credentials):
@@ -219,7 +165,7 @@ async def setCreds(cred: credentials):
             outfile.write(json_object)
 
         # Test connection before returning
-        session = init_untis_session()
+        session = await set_untis_session()
         if not session:
             raise ValueError("Failed to establish Untis session")
 
@@ -281,7 +227,7 @@ async def untis_update_loop():
     """Background task for Untis updates."""
     while True:
         try:
-            if DB["untis_state"] != "connected" or DB["untis_session"] is None:
+            if not DB["untis_state"] or DB["untis_session"] is None:
                 try:
                     if not SECURE_DB["untis_creds"]:
                         with open("creds.json", "r") as f:
@@ -299,5 +245,5 @@ async def untis_update_loop():
                 logging.warning("Failed to update timetable")
         except Exception as e:
             logging.error(f"Untis update error: {e}")
-            DB["untis_state"] = "error"
+            DB["untis_state"] = False
         await asyncio.sleep(300)
