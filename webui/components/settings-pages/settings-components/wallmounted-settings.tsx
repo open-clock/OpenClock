@@ -62,7 +62,7 @@ export default function WallmountedSettings() {
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <div className="flex items-center space-x-2">
-                            <Label htmlFor="wallmounted" className="text-md">Wall mounted</Label>
+                            <Label htmlFor="wallmounted">Wall mounted:</Label>
                             <HelpCircle className="w-5 h-5 text-light-secondary dark:text-dark-secondary" />
                         </div>
                     </TooltipTrigger>
