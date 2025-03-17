@@ -59,9 +59,7 @@ async def set_scopes(scopes: List[str]):
         raise handle_error(e, "Failed to set scopes")
 
 
-router.post("/graph-endpoint")
-
-
+@router.post("/graph-endpoint")
 async def set_graph_endpoint(endpoint: str):
     """Set Microsoft Graph endpoint."""
     try:
@@ -94,9 +92,6 @@ async def initiate_ms_login():
             "verification_uri": flow["verification_uri"],
             "user_code": flow["user_code"],
             "message": flow["message"],
-            "expires_at": (
-                flow.get("expires_at", 0) if flow.get("expires_at", 0) else None
-            ),
         }
     except Exception as e:
         raise handle_error(e, "Microsoft login failed")
@@ -160,6 +155,56 @@ async def get_ms_messages():
 
     except Exception as e:
         logging.error(f"Failed to get messages: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/notifications")
+async def get_ms_notifications():
+    """Get notifications from Microsoft Graph."""
+    try:
+        # Check if we have an active device flow
+        if "ms_flow" not in DB or not DB["ms_flow"]:
+            raise HTTPException(status_code=401, detail="No active authentication flow")
+
+        # Attempt to acquire token if not present
+        if not DB.get("ms_result"):
+            app = init_msal_app()
+            DB["ms_result"] = app.acquire_token_by_device_flow(DB["ms_flow"])
+            if not DB["ms_result"]:
+                raise HTTPException(
+                    status_code=401, detail="Authentication not completed"
+                )
+
+        headers = {"Authorization": f'Bearer {DB["ms_result"]["access_token"]}'}
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                f'{SECURE_DB["graph_endpoint"]}/me/notifications', headers=headers
+            ) as response:
+                data = await response.json()
+
+                if response.status == 401:
+                    DB["ms_result"] = None  # Clear invalid token
+                    raise HTTPException(status_code=401, detail="Token expired")
+
+                if "value" not in data:
+                    raise HTTPException(status_code=500, detail="Invalid response")
+
+                notifications = []
+                for notification in data["value"]:
+                    notifications.append(
+                        {
+                            "title": notification.get("title", ""),
+                            "body": notification.get("body", ""),
+                            "receivedDateTime": notification.get(
+                                "receivedDateTime", ""
+                            ),
+                        }
+                    )
+                return notifications
+
+    except Exception as e:
+        logging.error(f"Failed to get notifications: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
