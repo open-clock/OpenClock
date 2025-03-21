@@ -88,12 +88,10 @@ async def initiate_ms_login():
         if "user_code" not in flow:
             raise HTTPException(status_code=500, detail="Failed to create device flow")
         DB["ms_flow"] = flow
-        expires_at = DB["ms_flow"].get("expires_at", 0)
         return {
             "verification_uri": flow["verification_uri"],
             "user_code": flow["user_code"],
             "message": flow["message"],
-            "expires_at": expires_at,
         }
     except Exception as e:
         raise handle_error(e, "Microsoft login failed")

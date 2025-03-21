@@ -7,6 +7,7 @@ from typing import Dict, Any, Union
 from asyncio.subprocess import create_subprocess_shell
 from db import DB
 from dataClasses import command, model
+import datetime
 
 
 def handle_error(e: Exception, message: str) -> HTTPException:
@@ -16,3 +17,11 @@ def handle_error(e: Exception, message: str) -> HTTPException:
     error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
     logging.error(f"{message}: {str(e)} at {error_loc}")
     return HTTPException(status_code=500, detail=f"{message}: {str(e)} at {error_loc}")
+
+
+def log(message: str) -> None:
+    """Utility function for logging messages."""
+    time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    message = f"{time} - {message}"
+    print(message)
+    logging.info(message)

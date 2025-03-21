@@ -47,3 +47,35 @@ async def run_terminal(command: command) -> Dict[str, Union[str, Any]]:
         return {"status": "completed", "output": output, "error": error}
     except Exception as e:
         raise handle_error(e, "Command execution failed")
+
+
+@router.get("/get_logs")
+async def get_logs() -> Dict[str, Union[str, Any]]:
+    """Get logs."""
+    try:
+        with open("/var/log/syslog", "r") as f:
+            logs = f.read()
+        return {"status": "success", "logs": logs}
+    except Exception as e:
+        raise handle_error(e, "Failed to get logs")
+
+
+@router.get("/journal")
+async def get_journal(lines: int = 100):
+    """Get system journal logs."""
+    try:
+        process = await create_subprocess_shell(
+            f"journalctl -n {lines} --no-pager",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        stdout, stderr = await process.communicate()
+
+        if stderr:
+            logging.error(f"Journal error: {stderr.decode()}")
+
+        journal_entries = stdout.decode() if stdout else ""
+
+        return {"status": "success", "entries": journal_entries, "lines": lines}
+    except Exception as e:
+        raise handle_error(e, "Failed to get journal logs")
