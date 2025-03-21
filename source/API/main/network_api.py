@@ -105,6 +105,7 @@ async def scan_networks():
 
 @router.get("/access-points")
 async def get_access_points():
+    """Get available WiFi access points and check if connected."""
     try:
         # Get system bus
         bus = init_dbus()
@@ -119,6 +120,12 @@ async def get_access_points():
         wifi_interface = dbus.Interface(
             device, "org.freedesktop.NetworkManager.Device.Wireless"
         )
+        device_props = dbus.Interface(device, "org.freedesktop.DBus.Properties")
+
+        # Get active connection
+        active_ap_path = device_props.Get(
+            "org.freedesktop.NetworkManager.Device.Wireless", "ActiveAccessPoint"
+        )
 
         # Request scan
         wifi_interface.RequestScan(dbus.Dictionary({}, signature="sv"))
@@ -132,13 +139,25 @@ async def get_access_points():
             ap = bus.get_object("org.freedesktop.NetworkManager", ap_path)
             ap_props = dbus.Interface(ap, "org.freedesktop.DBus.Properties")
 
-            ssid = ap_props.Get("org.freedesktop.NetworkManager.AccessPoint", "Ssid")
+            ssid = bytes(
+                ap_props.Get("org.freedesktop.NetworkManager.AccessPoint", "Ssid")
+            ).decode("utf-8")
             strength = ap_props.Get(
                 "org.freedesktop.NetworkManager.AccessPoint", "Strength"
             )
+            hwAddress = ap_props.Get(
+                "org.freedesktop.NetworkManager.AccessPoint", "HwAddress"
+            )
+            # Check if this is the active access point
+            connected = ap_path == active_ap_path
 
             networks.append(
-                {"ssid": bytes(ssid).decode("utf-8"), "strength": int(strength)}
+                {
+                    "ssid": ssid,
+                    "strength": int(strength),
+                    "connected": connected,
+                    "id": f"{hwAddress}_{ssid}",  # Create a unique __ID__ by combining hwAddress and ssid
+                }
             )
 
         return networks

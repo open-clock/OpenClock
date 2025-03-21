@@ -8,6 +8,7 @@ from enum import Enum
 from pathlib import Path
 from dataClasses import ConfigModel, ClockType
 from db import DB
+from util import handle_error
 
 router = APIRouter(prefix="/config", tags=["Config"])
 
@@ -87,21 +88,27 @@ async def load_config() -> ConfigModel:
         return ConfigModel(model=ClockType.Mini, setup=False, wallmounted=False)
 
 
-async def set_configDB():
-    """Load configuration from file."""
+async def set_configDB(config: ConfigModel = None):
+    """Load or save configuration from/to file."""
     global DB
     config_path = get_relative_path("config.json")
 
     try:
-        # Check if file exists and has content
+        if config:
+            # Save provided config
+            DB["config"] = config
+            with open(config_path, "w") as outfile:
+                outfile.write(config.toJSON())
+            logging.info("Config saved successfully")
+            return
+
+        # Load config if none provided
         if not os.path.exists(config_path) or os.path.getsize(config_path) == 0:
             # Create default config
             default_config = ConfigModel(
                 model=ClockType.Mini, setup=False, wallmounted=False
             )
             DB["config"] = default_config
-
-            # Save default config
             await set_configDB(default_config)
             logging.info("Created default config")
             return
@@ -116,11 +123,12 @@ async def set_configDB():
         tb = traceback.extract_tb(e.__traceback__)
         filename, line_no, func, text = tb[-1]
         error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
-        logging.error(f"Failed to load config: {str(e)} at {error_loc}")
+        logging.error(f"Failed to load/save config: {str(e)} at {error_loc}")
         # Use default config on error
         DB["config"] = ConfigModel(model=ClockType.Mini, setup=False, wallmounted=False)
         raise HTTPException(
-            status_code=500, detail=f"Failed to load config: {str(e)} at {error_loc}"
+            status_code=500,
+            detail=f"Failed to load/save config: {str(e)} at {error_loc}",
         )
 
 
@@ -154,6 +162,18 @@ async def update_config(config: ConfigModel):
 
 
 @router.get("/", operation_id="get_full_config")
+async def get_config():
+    """Get current configuration."""
+    try:
+        if not DB.get("config"):
+            raise HTTPException(status_code=404, detail="No config found")
+        return DB["config"]
+    except Exception as e:
+        logging.error(f"Failed to get config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/get", operation_id="get_full_config")
 async def get_config():
     """Get current configuration."""
     try:
@@ -205,7 +225,7 @@ async def set_debug(debug: bool):
 
 
 @router.get("/getHostname", operation_id="get_system_hostname")
-async def getHostname(hostname: str):
+async def getHostname():
     with open("/etc/hostname", "r") as f:
         return f.read().strip()
 
@@ -295,3 +315,36 @@ async def set_Authority(authority: str):
         return {"status": "success", "authority": authority}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+def set_config(config: ConfigModel):
+    """Set system configuration."""
+    try:
+        DB["config"] = config
+        # Save to file
+        with open("config.json", "w") as f:
+            f.write(config.toJSON())
+        return True
+    except Exception as e:
+        logging.error(f"Failed to set config: {str(e)}")
+        return False
+
+
+@router.post("/set")
+async def set_config_endpoint(config: ConfigModel):
+    """Set system configuration endpoint."""
+    try:
+        if set_config(config):
+            return {"status": "success", "message": "Configuration updated"}
+        raise ValueError("Failed to update configuration")
+    except Exception as e:
+        raise handle_error(e, "Failed to set configuration")
+
+
+@router.get("/")
+async def get_config() -> ConfigModel:
+    """Get current system configuration."""
+    try:
+        return DB["config"]
+    except Exception as e:
+        raise handle_error(e, "Failed to get configuration")
