@@ -39,3 +39,7 @@ export interface MicrosoftLoginResponse {
     message: string;
     expires_at: number;
 }
+
+export interface UntisLoginNameResponse {
+    username: string;
+}

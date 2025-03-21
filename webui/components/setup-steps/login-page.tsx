@@ -12,6 +12,7 @@ import UntisLoginDialogContent from "../signins/untislogin";
 import DiscordLoginDialogContent from "../signins/discordlogin";
 import { useState } from "react";
 import { CheckCircle } from "lucide-react";
+import UntisCardHeader from "./setup-components/untis-card-header";
 
 export default function LoginPage() {
     const [microsoftOpen, setMicrosoftOpen] = useState(false);
@@ -49,10 +50,7 @@ export default function LoginPage() {
                                     <CheckCircle size={24} />
                                 </div>
                             )}
-                            <CardHeader>
-                                <CardTitle>Sign in with Untis</CardTitle>
-                                <CardDescription>Sign in with Untis to gain access to the TimeTable view</CardDescription>
-                            </CardHeader>
+                            <UntisCardHeader />
                         </Card>
                     </DialogTrigger>
                     <UntisLoginDialogContent setUntisOpen={setUntisOpen} setUntisComplete={setUntisComplete} />
