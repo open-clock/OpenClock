@@ -1,21 +1,12 @@
 import { API_ENDPOINT } from "@/lib/constants";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Config } from "@/lib/apitypes";
-import { Switch } from "../../ui/switch";
-import { Label } from "../../ui/label";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import {
-    Accordion,
-    AccordionContent,
-    AccordionItem,
-    AccordionTrigger,
-} from "@/components/ui/accordion"
 import { Input } from "../../ui/input";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../ui/tooltip";
-import { HelpCircle, Loader2Icon } from "lucide-react";
+import { Loader2Icon } from "lucide-react";
 
 const hostnameSchema = z.object({
     hostname: z
@@ -61,10 +52,16 @@ export default function HostnameSettings() {
     const form = useForm<FormValues>({
         resolver: zodResolver(hostnameSchema),
         defaultValues: {
-            hostname: data?.hostname || "openclock",
+            hostname: "openclock",
         },
         mode: "onChange",
     });
+
+    useEffect(() => {
+        if (data?.hostname) {
+            form.reset({ hostname: data.hostname });
+        }
+    }, [data, form]);
 
     useEffect(() => {
         const subscription = form.watch((value, { name }) => {

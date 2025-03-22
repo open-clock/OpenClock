@@ -3,7 +3,7 @@ import { Input } from "../ui/input"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Button } from "../ui/button"
 import { useState } from "react"
 import { API_ENDPOINT } from "@/lib/constants"
@@ -25,6 +25,7 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>
 
 export default function UntisLoginDialogContent({ setUntisOpen, setUntisComplete }: { setUntisOpen: (value: boolean) => void, setUntisComplete: (value: boolean) => void }) {
+  const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null)
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginFormData>({
@@ -54,6 +55,7 @@ export default function UntisLoginDialogContent({ setUntisOpen, setUntisComplete
       // Handle successful login here
       setUntisComplete(true)
       setUntisOpen(false)
+      queryClient.invalidateQueries({ queryKey: ['untis/login-name'] });
     }
   })
 

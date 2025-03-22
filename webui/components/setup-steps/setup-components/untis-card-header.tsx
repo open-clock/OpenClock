@@ -14,7 +14,7 @@ export default function UntisCardHeader() {
         },
     });
 
-    if (isPending || isFetching || error || !data) {
+    if (isPending || error || !data) {
         return (
             <CardHeader>
                 <CardTitle>Sign in with Untis</CardTitle>

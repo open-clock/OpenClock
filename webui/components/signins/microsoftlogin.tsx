@@ -13,15 +13,21 @@ export default function MicrosoftLoginDialogContent({ setMicrosoftOpen, setMicro
 }) {
     const [copied, setCopied] = useState(false);
     const [timeLeft, setTimeLeft] = useState<string>("");
+    let forceRefresh = false; // Doesnt need to survive rerender as it will fetch before that
 
-    const { isPending, error, data, isFetching, refetch } = useQuery<MicrosoftLoginResponse, Error>({
-        queryKey: ['microsoft/login'],
+    const { isPending, error, data, isFetching, refetch: qrefetch } = useQuery<MicrosoftLoginResponse, Error>({
+        queryKey: ['microsoft/login', forceRefresh],
         queryFn: async (): Promise<MicrosoftLoginResponse> => {
-            const response = await fetch(`${API_ENDPOINT}/microsoft/login`);
+            const response = await fetch(forceRefresh ? `${API_ENDPOINT}/microsoft/login?force` : `${API_ENDPOINT}/microsoft/login`);
             return response.json();
         },
         enabled: false,
     });
+
+    const refetch = (force = false) => {
+        forceRefresh = force;
+        qrefetch();
+    }
 
     useEffect(() => {
         refetch();
@@ -111,7 +117,7 @@ export default function MicrosoftLoginDialogContent({ setMicrosoftOpen, setMicro
                     <Button
                         variant="outline"
                         size="icon"
-                        onClick={() => refetch()}
+                        onClick={() => refetch(true)}
                         disabled={isFetching}
                     >
                         <RefreshCw className={`${isFetching ? 'animate-spin' : ''}`} />

@@ -103,10 +103,16 @@ export default function DeviceSettingsPage() {
     const form = useForm<FormValues>({
         resolver: zodResolver(hostnameSchema),
         defaultValues: {
-            hostname: data?.hostname || "openclock",
+            hostname: "openclock",
         },
         mode: "onChange",
     });
+
+    useEffect(() => {
+        if (data?.hostname) {
+            form.reset({ hostname: data.hostname });
+        }
+    }, [data, form]);
 
     useEffect(() => {
         const subscription = form.watch((value, { name }) => {
