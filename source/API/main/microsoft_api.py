@@ -8,17 +8,9 @@ import traceback
 from typing import List, Dict, Union, Optional
 from db import DB, SECURE_DB
 from dataClasses import EmailMessage
+from util import log
 
 router = APIRouter(prefix="/microsoft", tags=["Microsoft"])
-
-
-def handle_error(e: Exception, message: str) -> HTTPException:
-    """Utility function for consistent error handling."""
-    tb = traceback.extract_tb(e.__traceback__)
-    filename, line_no, func, text = tb[-1]
-    error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
-    logging.error(f"{message}: {str(e)} at {error_loc}")
-    return HTTPException(status_code=500, detail=f"{message}: {str(e)} at {error_loc}")
 
 
 def init_msal_app():
@@ -35,7 +27,7 @@ def init_msal_app():
         tb = traceback.extract_tb(e.__traceback__)
         filename, line_no, func, text = tb[-1]
         error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
-        logging.error(f"MSAL initialization failed: {str(e)} at {error_loc}")
+        log(f"MSAL initialization failed: {str(e)} at {error_loc}")
         raise RuntimeError(f"MSAL initialization failed: {str(e)} at {error_loc}")
 
 
@@ -46,7 +38,8 @@ async def set_client_id(client_id: str):
         SECURE_DB["client_id"] = client_id
         return {"status": "success", "message": "Client ID set successfully"}
     except Exception as e:
-        raise handle_error(e, "Failed to set client ID")
+        log(f"Failed to set client ID: {e}")
+        return {"status": "error", "message": "Failed to set client ID"}
 
 
 @router.post("/scopes")
@@ -56,7 +49,8 @@ async def set_scopes(scopes: List[str]):
         SECURE_DB["scopes"] = scopes
         return {"status": "success", "message": "Scopes set successfully"}
     except Exception as e:
-        raise handle_error(e, "Failed to set scopes")
+        log(f"Failed to set scopes: {e}")
+        return {"status": "error", "message": "Failed to set scopes"}
 
 
 @router.post("/graph-endpoint")
@@ -66,7 +60,8 @@ async def set_graph_endpoint(endpoint: str):
         SECURE_DB["graph_endpoint"] = endpoint
         return {"status": "success", "message": "Graph endpoint set successfully"}
     except Exception as e:
-        raise handle_error(e, "Failed to set graph endpoint")
+        log(f"Failed to set graph endpoint: {e}")
+        return {"status": "error", "message": "Failed to set graph endpoint"}
 
 
 @router.post("/authority")
@@ -76,25 +71,52 @@ async def set_authority(authority: str):
         SECURE_DB["authority"] = authority
         return {"status": "success", "message": "Authority set successfully"}
     except Exception as e:
-        raise handle_error(e, "Failed to set authority")
+        log(f"Failed to set authority: {e}")
+        return {"status": "error", "message": "Failed to set authority"}
 
 
 @router.get("/login")
-async def initiate_ms_login():
-    """Start Microsoft login flow."""
+async def initiate_ms_login(force: bool = False):
+    """Start Microsoft login flow or return existing token info."""
     try:
+        # Check if we have a valid token and force is not requested
+        if not force and DB.get("ms_result") and DB["ms_result"].get("access_token"):
+            accounts = DB["ms_app"].get_accounts() if DB["ms_app"] else []
+            if accounts:
+                expires_on = DB["ms_result"].get("expires_on", 0)
+                current_time = time.time()
+                time_left = max(0, expires_on - current_time)
+
+                return {
+                    "status": "authenticated",
+                    "account": accounts[0].get("username", "Unknown"),
+                    "expires_on": expires_on,
+                    "time_left_seconds": int(time_left),
+                    "scopes": DB["ms_result"].get("scope", []),
+                }
+
+        # If no valid token or force requested, start new flow
         app = init_msal_app()
         flow = app.initiate_device_flow(scopes=SECURE_DB["scopes"])
         if "user_code" not in flow:
-            raise HTTPException(status_code=500, detail="Failed to create device flow")
+            raise ValueError("Failed to create device flow")
+
+        # Clear existing token if forcing new login
+        if force:
+            DB["ms_result"] = None
+
         DB["ms_flow"] = flow
         return {
+            "status": "login_required",
             "verification_uri": flow["verification_uri"],
             "user_code": flow["user_code"],
             "message": flow["message"],
+            "expires_in": flow.get("expires_in", 0),
         }
+
     except Exception as e:
-        raise handle_error(e, "Microsoft login failed")
+        log(f"Microsoft login error: {str(e)}")
+        return {"status": "error", "message": str(e)}
 
 
 @router.get("/accounts")
@@ -104,7 +126,8 @@ async def get_ms_accounts() -> List[Dict]:
         accounts = DB["ms_app"].get_accounts()
         return accounts if accounts else []
     except Exception as e:
-        raise handle_error(e, "Failed to fetch accounts")
+        log(f"Failed to get accounts: {e}")
+        return []
 
 
 @router.get("/messages")
@@ -113,6 +136,7 @@ async def get_ms_messages():
     try:
         # Check if we have an active device flow
         if "ms_flow" not in DB or not DB["ms_flow"]:
+            log("No active authentication flow")
             raise HTTPException(status_code=401, detail="No active authentication flow")
 
         # Attempt to acquire token if not present
@@ -134,9 +158,11 @@ async def get_ms_messages():
 
                 if response.status == 401:
                     DB["ms_result"] = None  # Clear invalid token
+                    log("Token expired")
                     raise HTTPException(status_code=401, detail="Token expired")
 
                 if "value" not in data:
+                    log("Invalid response")
                     raise HTTPException(status_code=500, detail="Invalid response")
 
                 messages = []
@@ -154,8 +180,8 @@ async def get_ms_messages():
                 return messages
 
     except Exception as e:
-        logging.error(f"Failed to get messages: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        log(f"Failed to get messages: {e}")
+        return []
 
 
 @router.get("/notifications")
@@ -164,6 +190,7 @@ async def get_ms_notifications():
     try:
         # Check if we have an active device flow
         if "ms_flow" not in DB or not DB["ms_flow"]:
+            log("No active authentication flow")
             raise HTTPException(status_code=401, detail="No active authentication flow")
 
         # Attempt to acquire token if not present
@@ -204,7 +231,7 @@ async def get_ms_notifications():
                 return notifications
 
     except Exception as e:
-        logging.error(f"Failed to get notifications: {e}")
+        log(f"Failed to get notifications: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -216,7 +243,8 @@ async def logout_ms_account():
         DB["account"] = None
         return {"status": "success", "message": "Logged out successfully"}
     except Exception as e:
-        raise handle_error(e, "Logout failed")
+        log(f"Failed to logout: {e}")
+        return {"status": "error", "message": "Failed to logout"}
 
 
 async def ms_refresh_token_loop():
@@ -234,7 +262,7 @@ async def ms_refresh_token_loop():
                         DB["ms_result"] = result
                         logging.info("MS token refreshed")
         except Exception as e:
-            logging.error(f"MS token refresh error: {e}")
+            log(f"MS token refresh error: {e}")
         await asyncio.sleep(3600)
 
 
@@ -254,4 +282,5 @@ async def get_device_flow_status() -> Dict[str, Union[bool, Optional[float]]]:
             }
         return {"active": False, "expires_at": None}
     except Exception as e:
-        raise handle_error(e, "Failed to get device flow status")
+        log(f"Failed to get device flow status: {e}")
+        return {"active": False, "expires_at": None}

@@ -8,6 +8,7 @@ import datetime
 import time
 from typing import Optional
 
+from util import log
 import webuntis.errors
 from db import DB, SECURE_DB
 from dataClasses import credentials
@@ -15,25 +16,13 @@ from dataClasses import credentials
 router = APIRouter(prefix="/untis", tags=["Untis"])
 
 
-# --- Error Types ---
-class UntisSessionError(Exception):
-    """Raised when Untis session operations fail."""
-
-    pass
-
-
-class UntisCredentialsError(Exception):
-    """Raised when Untis credentials are invalid or missing."""
-
-    pass
-
-
 # --- Session Management ---
 async def set_untis_session():
     """Initialize Untis session with context manager."""
     try:
         if not SECURE_DB.get("untis_creds"):
-            raise UntisCredentialsError("No credentials configured")
+            log("No Untis credentials configured")
+            return False
 
         creds = SECURE_DB["untis_creds"]
         retry_count = 3
@@ -61,7 +50,7 @@ async def set_untis_session():
 
     except Exception as e:
         DB["untis_state"] = False
-        logging.error(f"Failed to create Untis session: {str(e)}")
+        log(f"Failed to create Untis session: {str(e)}")
         return False
 
 
@@ -86,12 +75,12 @@ async def set_timetable(dayRange: int) -> bool:
 
     except webuntis.errors.RemoteError as e:
         if e.code == -8509:
-            logging.error("No right for getTeachers()")
+            log("No right for getTeachers()")
         else:
-            logging.error(f"Failed to fetch timetable: {str(e)}")
+            log(f"Failed to fetch timetable: {str(e)}")
         return False
     except Exception as e:
-        logging.error(f"Failed to fetch timetable: {str(e)}")
+        log(f"Failed to fetch timetable: {str(e)}")
         return False
 
 
@@ -103,18 +92,8 @@ async def set_next_holiday() -> bool:
         DB["holidays"] = DB["untis_session"].holidays()
         return True
     except Exception as e:
-        logging.error(f"Failed to fetch holidays: {e}")
+        log(f"Failed to fetch holidays: {e}")
         return False
-
-
-# --- Utility Functions ---
-def handle_error(e: Exception, message: str) -> HTTPException:
-    """Utility function for consistent error handling."""
-    tb = traceback.extract_tb(e.__traceback__)
-    filename, line_no, func, text = tb[-1]
-    error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
-    logging.error(f"{message}: {str(e)} at {error_loc}")
-    return HTTPException(status_code=500, detail=f"{message}: {str(e)} at {error_loc}")
 
 
 async def save_credentials(creds: dict):
@@ -125,7 +104,8 @@ async def save_credentials(creds: dict):
             outfile.write(json_object)
         return SECURE_DB["untis_creds"]
     except Exception as e:
-        raise handle_error(e, "Failed to save credentials")
+        log(f"Failed to save credentials: {str(e)}")
+        return None
 
 
 def validate_server_url(server: str) -> str:
@@ -148,7 +128,7 @@ def validate_server_url(server: str) -> str:
         return server  # WebUntis lib will add https:// and /WebUntis
 
     except Exception as e:
-        logging.error(f"URL validation error: {str(e)}")
+        log(f"Failed to validate server URL: {str(e)}")
         return ""
 
 
@@ -178,7 +158,8 @@ async def setCreds(cred: credentials):
         }
 
     except Exception as e:
-        raise handle_error(e, "Failed to set credentials")
+        log(f"Failed to set Untis credentials: {str(e)}")
+        return {"status": "error", "message": str(e)}
 
 
 @router.get("/timetable")
@@ -206,7 +187,8 @@ async def get_timetable(dayRange: int = 10):
         return formatted_timetable
 
     except Exception as e:
-        raise handle_error(e, "Failed to get timetable")
+        log(f"Failed to get timetable: {str(e)}")
+        return []
 
 
 @router.get("/current-lesson")
@@ -236,7 +218,14 @@ async def get_current_lesson():
             ),
         }
     except Exception as e:
-        raise handle_error(e, "Failed to get current lesson")
+        log(f"Failed to get current lesson: {str(e)}")
+        return {
+            "subject": "Unknown",
+            "start": "",
+            "end": "",
+            "room": "Unknown",
+            "classes": [],
+        }
 
 
 @router.get("/lessons-today")
@@ -259,7 +248,8 @@ async def get_lessons_today():
         ]
         return formatted_lessons
     except Exception as e:
-        raise handle_error(e, "Failed to get lessons for today")
+        log(f"Failed to get lessons for today: {str(e)}")
+        return []
 
 
 @router.get("/lessons-week")
@@ -286,7 +276,8 @@ async def get_lessons_week():
         ]
         return formatted_lessons
     except Exception as e:
-        raise handle_error(e, "Failed to get lessons for the week")
+        log(f"Failed to get lessons for the week: {str(e)}")
+        return []
 
 
 @router.get("/next-event")
@@ -316,7 +307,8 @@ async def get_next_event():
 
         return next_event
     except Exception as e:
-        raise handle_error(e, "Failed to get next event")
+        log(f"Failed to get next event: {str(e)}")
+        return {"type": "unknown", "name": "Unknown", "start": "", "end": ""}
 
 
 @router.get("/status")
@@ -329,7 +321,8 @@ async def get_untis_status():
             "holidays": len(DB["holidays"]),
         }
     except Exception as e:
-        raise handle_error(e, "Failed to get Untis status")
+        log(f"Failed to get Untis status: {str(e)}")
+        return {"session": False, "timetable_entries": 0, "holidays": 0}
 
 
 @router.get("/login-name")
@@ -341,7 +334,8 @@ async def get_login_name():
         creds = SECURE_DB["untis_creds"]
         return {"username": creds.username}
     except Exception as e:
-        raise handle_error(e, "Failed to get login name")
+        log(f"Failed to get login name: {str(e)}")
+        return {"username": "Unknown"}
 
 
 # --- Update Loop ---
@@ -357,7 +351,7 @@ async def untis_update_loop():
                             SECURE_DB["untis_creds"] = credentials(**creds)
                     await set_untis_session()
                 except Exception as e:
-                    logging.error(f"Credential loading error: {e}")
+                    log(f"Credential loading error: {e}")
                     await asyncio.sleep(30)
                     continue
 
@@ -366,6 +360,6 @@ async def untis_update_loop():
             else:
                 logging.warning("Failed to update timetable")
         except Exception as e:
-            logging.error(f"Untis update error: {e}")
+            log(f"Untis update error: {e}")
             DB["untis_state"] = False
         await asyncio.sleep(30)

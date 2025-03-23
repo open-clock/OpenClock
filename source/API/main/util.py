@@ -23,5 +23,4 @@ def log(message: str) -> None:
     """Utility function for logging messages."""
     time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     message = f"{time} - {message}"
-    print(message)
     logging.info(message)
