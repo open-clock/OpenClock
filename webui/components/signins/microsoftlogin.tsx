@@ -18,7 +18,7 @@ export default function MicrosoftLoginDialogContent({ setMicrosoftOpen, setMicro
     const { isPending, error, data, isFetching, refetch: qrefetch } = useQuery<MicrosoftLoginResponse, Error>({
         queryKey: ['microsoft/login', forceRefresh],
         queryFn: async (): Promise<MicrosoftLoginResponse> => {
-            const response = await fetch(forceRefresh ? `${API_ENDPOINT}/microsoft/login?force` : `${API_ENDPOINT}/microsoft/login`);
+            const response = await fetch(forceRefresh ? `${API_ENDPOINT}/microsoft/login?force=true` : `${API_ENDPOINT}/microsoft/login`);
             return response.json();
         },
         enabled: false,
@@ -84,7 +84,7 @@ export default function MicrosoftLoginDialogContent({ setMicrosoftOpen, setMicro
             <DialogTitle>Microsoft Login</DialogTitle>
             <h1 className="">Visit the URL and enter the code below to sign in with Microsoft</h1>
             <div className="flex flex-col items-center gap-4 w-full">
-                <a href={data.verification_uri} className="text-xl text-light-accent dark:text-dark-accent">
+                <a href={data.verification_uri} target="_blank" className="text-xl text-light-accent dark:text-dark-accent">
                     {data.verification_uri}
                 </a>
                 <div className="flex items-center justify-center gap-2">

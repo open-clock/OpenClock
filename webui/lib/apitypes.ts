@@ -43,3 +43,19 @@ export interface MicrosoftLoginResponse {
 export interface UntisLoginNameResponse {
     username: string;
 }
+
+export interface SystemGetLogsResponse {
+    status: string,
+    logs: string
+}
+
+export interface MicrosoftAccount {
+    home_account_id: string,
+    environment: string,
+    username: string,
+    account_source: string,
+    authority_type: string
+}
+export interface MicrosoftGetAccountsResponse {
+    accounts: MicrosoftAccount[]
+}
