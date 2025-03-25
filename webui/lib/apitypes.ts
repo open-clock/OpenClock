@@ -44,11 +44,6 @@ export interface UntisLoginNameResponse {
     username: string;
 }
 
-export interface SystemGetLogsResponse {
-    status: string,
-    logs: string
-}
-
 export interface MicrosoftGetAccountsResponse {
     home_account_id: string,
     environment: string,
