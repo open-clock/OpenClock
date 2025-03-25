@@ -1,17 +1,17 @@
-import { MicrosoftGetAccountsResponse } from "@/lib/apitypes";
+import { UntisLoginNameResponse } from "@/lib/apitypes";
 import { API_ENDPOINT } from "@/lib/constants";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2Icon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 
-export default function MicrosoftAccountSettings() {
+export default function UntisAccountSettings() {
     const queryClient = useQueryClient();
 
-    const { isPending, error, data, isFetching } = useQuery<MicrosoftGetAccountsResponse[], Error>({
-        queryKey: ['microsoft/accounts'],
-        queryFn: async (): Promise<MicrosoftGetAccountsResponse[]> => {
+    const { isPending, error, data, isFetching } = useQuery<UntisLoginNameResponse, Error>({
+        queryKey: ['untis/login-name'],
+        queryFn: async (): Promise<UntisLoginNameResponse> => {
             const response = await fetch(
-                `${API_ENDPOINT}/microsoft/accounts`,
+                `${API_ENDPOINT}/untis/login-name`,
             );
             return await response.json();
         },
@@ -19,7 +19,7 @@ export default function MicrosoftAccountSettings() {
 
     const LogoutMutation = useMutation({
         mutationFn: async (): Promise<{ status: string, message: string }> => {
-            const response = await fetch(`${API_ENDPOINT}/microsoft/logout`, {
+            const response = await fetch(`${API_ENDPOINT}/untis/logout`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -35,8 +35,8 @@ export default function MicrosoftAccountSettings() {
                 toast.error(data.message);
                 return;
             }
-            toast.success('Logged out of Microsoft account');
-            queryClient.invalidateQueries({ queryKey: ['microsoft/accounts'] });
+            toast.success('Logged out of Untis account');
+            queryClient.invalidateQueries({ queryKey: ['untis/login-name'] });
         }
     });
 
@@ -55,13 +55,13 @@ export default function MicrosoftAccountSettings() {
         </div>
     );
 
-    if (data.length === 0) return (
+    if (data.username === "") return (
         <div>
-            <h1 className="text-2xl font-semibold">Microsoft Account</h1>
+            <h1 className="text-2xl font-semibold">Untis Account</h1>
             <div className="mt-4">
                 <div className="p-4 mb-4">
                     <h2 className="text-lg font-semibold">No accounts connected</h2>
-                    <p className="text-sm text-gray-500">You have not connected any Microsoft accounts yet.</p>
+                    <p className="text-sm text-gray-500">You have not connected any Untis accounts yet.</p>
                 </div>
             </div>
         </div>
@@ -69,17 +69,12 @@ export default function MicrosoftAccountSettings() {
 
     return (
         <div>
-            <h1 className="text-2xl font-semibold">Microsoft Account</h1>
+            <h1 className="text-2xl font-semibold">Untis Account</h1>
             <div className="mt-4">
-                {data.map((account) => (
-                    <div key={account.home_account_id} className="rounded-lg p-4 shadow-md mb-4 flex justify-between items-center">
-                        <div>
-                            <h2 className="text-lg font-semibold">{account.username}</h2>
-                            <p className="text-sm text-gray-500">{account.environment}</p>
-                        </div>
-                        <Trash2Icon className="w-6 h-6 text-red-500 cursor-pointer" onClick={() => { LogoutMutation.mutate(); }} />
-                    </div>
-                ))}
+                <div className="rounded-lg p-4 shadow-md mb-4 flex justify-between items-center">
+                    <h2 className="text-lg font-semibold">{data.username}</h2>
+                    <Trash2Icon className="w-6 h-6 text-red-500 cursor-pointer" onClick={() => { LogoutMutation.mutate(); }} />
+                </div>
             </div>
         </div>
     );

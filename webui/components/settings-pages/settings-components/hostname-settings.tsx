@@ -81,8 +81,8 @@ export default function HostnameSettings() {
     );
 
     if (error) return (
-        <div className="min-h-screen flex items-center justify-center">
-            <h1 className="text-center text-2xl">An error has occurred: {error.message}</h1>
+        <div className="flex items-center justify-center">
+            <h1 className="text-center text-xl">An error has occurred: {error.message}</h1>
         </div>
     );
 

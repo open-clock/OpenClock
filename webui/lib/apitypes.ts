@@ -49,13 +49,12 @@ export interface SystemGetLogsResponse {
     logs: string
 }
 
-export interface MicrosoftAccount {
+export interface MicrosoftGetAccountsResponse {
     home_account_id: string,
     environment: string,
     username: string,
     account_source: string,
-    authority_type: string
-}
-export interface MicrosoftGetAccountsResponse {
-    accounts: MicrosoftAccount[]
+    authority_type: string,
+    local_account_id: string,
+    realm: string
 }
