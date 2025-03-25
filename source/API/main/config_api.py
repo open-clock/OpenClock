@@ -8,7 +8,11 @@ from enum import Enum
 from pathlib import Path
 from dataClasses import ConfigModel, ClockType
 from db import DB
-from util import handle_error
+from util import handle_error, log
+
+# Change config directory to be in user space instead of /etc
+CONFIG_DIR = Path.home() / ".config" / "openclock"
+CONFIG_FILE = CONFIG_DIR / "config.json"
 
 router = APIRouter(prefix="/config", tags=["Config"])
 
@@ -21,6 +25,38 @@ class EnumEncoder(json.JSONEncoder):
 
 
 # --- Helper Functions ---
+def ensure_config_dir():
+    """Ensure config directory exists with proper permissions."""
+    try:
+        # Create directory if it doesn't exist
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+
+        # Set user read/write permissions
+        CONFIG_DIR.chmod(0o755)
+
+        # Create config file if it doesn't exist
+        if not CONFIG_FILE.exists():
+            CONFIG_FILE.touch()
+            CONFIG_FILE.chmod(0o644)
+
+        # Ensure current user owns the directory and file
+        import os
+
+        uid = os.getuid()
+        gid = os.getgid()
+        os.chown(CONFIG_DIR, uid, gid)
+        os.chown(CONFIG_FILE, uid, gid)
+
+        log(f"Config directory setup at {CONFIG_DIR}", module="config")
+    except Exception as e:
+        log(
+            f"Failed to setup config directory: {str(e)}",
+            level="error",
+            module="config",
+        )
+        raise
+
+
 def get_config_path() -> Path:
     """Get path to config file."""
     try:
@@ -63,29 +99,82 @@ async def set_configFile():
 
 
 async def load_config() -> ConfigModel:
-    """Load config from file or create default."""
+    """Load configuration from file or create default."""
     try:
-        config_path = get_config_path()
-        if not config_path.exists():
+        ensure_config_dir()
+        if not CONFIG_FILE.exists() or CONFIG_FILE.stat().st_size == 0:
+            log("No config file found, creating default", module="config")
             default_config = ConfigModel(
-                model=ClockType.Mini, setup=False, wallmounted=False
+                model=ClockType.Mini,
+                setup=False,
+                wallmounted=False,
+                debug=False,
+                hostname="openclock",
+                timezone="UTC",
             )
-            await set_configDB(default_config)
+            await save_config(default_config)
             return default_config
 
-        with open(config_path, "r") as f:
-            data = json.load(f)
-            return ConfigModel(**data)
-    except json.JSONDecodeError:
-        logging.error("Failed to decode config file")
-        default_config = ConfigModel(
-            model=ClockType.Mini, setup=False, wallmounted=False
-        )
-        await set_configDB(default_config)
-        return ConfigModel(model=ClockType.Mini, setup=False, wallmounted=False)
+        try:
+            with open(CONFIG_FILE, "r") as f:
+                data = json.load(f)
+                # Make sure to preserve setup state
+                if "setup" not in data and DB.get("config"):
+                    data["setup"] = DB["config"].setup
+
+                config = ConfigModel(**data)
+                log(
+                    f"Loaded existing configuration (setup={config.setup})",
+                    module="config",
+                )
+                return config
+        except json.JSONDecodeError:
+            log("Invalid config file, loading from DB or default", module="config")
+            if DB.get("config"):
+                # Preserve existing config from DB
+                return DB["config"]
+
+            # Fallback to default if no DB config
+            return ConfigModel(
+                model=ClockType.Mini,
+                setup=False,
+                wallmounted=False,
+                debug=False,
+                hostname="openclock",
+                timezone="UTC",
+            )
+
     except Exception as e:
-        logging.error(f"Failed to load config: {e}")
-        return ConfigModel(model=ClockType.Mini, setup=False, wallmounted=False)
+        log(f"Failed to load configuration: {str(e)}", level="error", module="config")
+        # Try to preserve existing config from DB
+        if DB.get("config"):
+            return DB["config"]
+        # Ultimate fallback
+        return ConfigModel(
+            model=ClockType.Mini,
+            setup=False,
+            wallmounted=False,
+            debug=False,
+            hostname="openclock",
+            timezone="UTC",
+        )
+
+
+async def save_config(config: ConfigModel) -> bool:
+    """Save configuration to file."""
+    try:
+        ensure_config_dir()  # Make sure directory exists with proper permissions
+        config_dict = config.model_dump()
+        config_dict["model"] = config.model.value
+        config_dict["setup"] = config.setup  # Explicitly preserve setup state
+
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(config_dict, f, indent=2)
+        log(f"Configuration saved successfully (setup={config.setup})", module="config")
+        return True
+    except Exception as e:
+        log(f"Failed to save configuration: {str(e)}", level="error", module="config")
+        return False
 
 
 async def set_configDB(config: ConfigModel = None):
@@ -95,14 +184,14 @@ async def set_configDB(config: ConfigModel = None):
 
     try:
         if config:
-            # Save provided config
+            log(f"Saving new configuration", module="config")
             DB["config"] = config
             with open(config_path, "w") as outfile:
                 outfile.write(config.toJSON())
-            logging.info("Config saved successfully")
+            log("Configuration saved successfully", module="config")
             return
 
-        # Load config if none provided
+        log("Loading existing configuration", module="config")
         if not os.path.exists(config_path) or os.path.getsize(config_path) == 0:
             # Create default config
             default_config = ConfigModel(
@@ -120,6 +209,7 @@ async def set_configDB(config: ConfigModel = None):
             logging.info("Config loaded successfully")
 
     except Exception as e:
+        log(f"Configuration error: {str(e)}", level="error", module="config")
         tb = traceback.extract_tb(e.__traceback__)
         filename, line_no, func, text = tb[-1]
         error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
@@ -139,49 +229,28 @@ async def set_configDB(config: ConfigModel = None):
 async def update_config(config: ConfigModel):
     """Update system configuration."""
     try:
-        # Convert to dict and handle enum serialization
-        config_dict = config.model_dump()
-        config_dict["model"] = config.model.value
-
-        # Update DB
         DB["config"] = config
-
-        # Save to file with custom encoder
-        with open(get_config_path(), "w") as f:
-            json.dump(config_dict, f, cls=EnumEncoder, indent=2)
-
-        return {"status": "success", "message": "Configuration updated"}
+        if await save_config(config):
+            return {"status": "success", "message": "Configuration updated"}
+        raise ValueError("Failed to save configuration")
     except Exception as e:
-        tb = traceback.extract_tb(e.__traceback__)
-        filename, line_no, func, text = tb[-1]
-        error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
-        logging.error(f"Failed to update config: {str(e)} at {error_loc}")
-        raise HTTPException(
-            status_code=500, detail=f"Failed to update config: {str(e)} at {error_loc}"
-        )
-
-
-@router.get("/", operation_id="get_full_config")
-async def get_config():
-    """Get current configuration."""
-    try:
-        if not DB.get("config"):
-            raise HTTPException(status_code=404, detail="No config found")
-        return DB["config"]
-    except Exception as e:
-        logging.error(f"Failed to get config: {e}")
+        log(f"Config update failed: {str(e)}", level="error", module="config")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/get", operation_id="get_full_config")
+@router.get("/", operation_id="get_config")
+@router.get(
+    "/get", operation_id="get_config_legacy"
+)  # Keep for backwards compatibility
 async def get_config():
     """Get current configuration."""
     try:
         if not DB.get("config"):
             raise HTTPException(status_code=404, detail="No config found")
+        log("Returning current configuration", module="config")
         return DB["config"]
     except Exception as e:
-        logging.error(f"Failed to get config: {e}")
+        log(f"Failed to get config: {str(e)}", level="error", module="config")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -207,10 +276,16 @@ async def set_wallmount(wallmount: bool):
 
 @router.post("/setSetup")
 async def set_setup(setup: bool):
-    global DB
-    DB["config"].setup = setup
-    await set_configFile()
-    return True
+    """Update setup status."""
+    try:
+        log(f"Setting setup status to: {setup}", module="config")
+        DB["config"].setup = setup
+        if await save_config(DB["config"]):
+            return {"status": "success", "setup": setup}
+        raise ValueError("Failed to save setup state")
+    except Exception as e:
+        log(f"Failed to set setup status: {str(e)}", level="error", module="config")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/setDebug")
@@ -234,14 +309,19 @@ async def getHostname():
 async def set_hostname(hostname: str):
     """Update hostname."""
     try:
+        log(f"Setting hostname to: {hostname}", module="config")
         DB["config"].hostname = hostname
         await set_configDB(DB["config"])
+
         try:
             subprocess.run(["hostnamectl", "set-hostname", hostname], check=True)
+            log(f"Hostname updated successfully", module="config")
         except subprocess.CalledProcessError as e:
-            logging.error(f"Failed to set system hostname: {e}")
+            log(f"Failed to set system hostname: {e}", level="error", module="config")
+
         return {"status": "success", "hostname": hostname}
     except Exception as e:
+        log(f"Hostname update failed: {str(e)}", level="error", module="config")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -249,17 +329,28 @@ async def set_hostname(hostname: str):
 async def set_timezone(timezone: str):
     """Update timezone."""
     try:
+        log(f"Setting timezone to: {timezone}", module="config")
         if not os.path.exists(f"/usr/share/zoneinfo/{timezone}"):
+            log(
+                f"Invalid timezone requested: {timezone}",
+                level="error",
+                module="config",
+            )
             raise HTTPException(status_code=400, detail="Invalid timezone")
+
         DB["config"].timezone = timezone
         await set_configDB(DB["config"])
+
         try:
             subprocess.run(["timedatectl", "set-timezone", timezone], check=True)
+            log(f"Timezone updated successfully", module="config")
         except subprocess.CalledProcessError as e:
-            logging.error(f"Failed to set system timezone: {e}")
+            log(f"Failed to set system timezone: {e}", level="error", module="config")
             raise HTTPException(status_code=500, detail=str(e))
+
         return {"status": "success", "timezone": timezone}
     except Exception as e:
+        log(f"Timezone update failed: {str(e)}", level="error", module="config")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -339,12 +430,3 @@ async def set_config_endpoint(config: ConfigModel):
         raise ValueError("Failed to update configuration")
     except Exception as e:
         raise handle_error(e, "Failed to set configuration")
-
-
-@router.get("/")
-async def get_config() -> ConfigModel:
-    """Get current system configuration."""
-    try:
-        return DB["config"]
-    except Exception as e:
-        raise handle_error(e, "Failed to get configuration")

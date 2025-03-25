@@ -7,6 +7,7 @@ import traceback
 from typing import List, Dict
 from dataClasses import NetworkCredentials
 from db import DB
+from util import log
 
 router = APIRouter(prefix="/network", tags=["Network"])
 
@@ -51,68 +52,36 @@ def get_wifi_device():
             )
             if device_type == 2:  # WiFi device
                 return device_path
-        raise ValueError("No WiFi device found")
+        log("No WiFi device found")
     except Exception as e:
-        raise handle_error(e, "Failed to get WiFi device")
-
-
-def get_access_points(bus, device_path):
-    """Get list of WiFi access points."""
-    try:
-        device = bus.get_object("org.freedesktop.NetworkManager", device_path)
-        wifi_device = dbus.Interface(
-            device, "org.freedesktop.NetworkManager.Device.Wireless"
-        )
-
-        # Request scan
-        wifi_device.RequestScan({})
-        time.sleep(2)  # Wait for scan completion
-
-        # Get access points
-        aps = wifi_device.GetAccessPoints()
-        networks = []
-
-        for ap_path in aps:
-            ap = bus.get_object("org.freedesktop.NetworkManager", ap_path)
-            ap_props = dbus.Interface(ap, "org.freedesktop.DBus.Properties")
-
-            ssid = ap_props.Get("org.freedesktop.NetworkManager.AccessPoint", "Ssid")
-            strength = ap_props.Get(
-                "org.freedesktop.NetworkManager.AccessPoint", "Strength"
-            )
-
-            networks.append(
-                {"ssid": bytes(ssid).decode("utf-8"), "strength": int(strength)}
-            )
-
-        return networks
-    except Exception as e:
-        raise handle_error(e, "Failed to get access points")
+        log(f"Failed to get WiFi device: {str(e)}")
+        return None
 
 
 @router.get("/scan", response_model=List[Dict[str, str]])
 async def scan_networks():
     """Scan for available WiFi networks."""
     try:
-        logging.info("Starting network scan...")
+        log("Starting network scan...")
         bus = init_dbus()
         device_path = get_wifi_device()
         networks = get_access_points(bus, device_path)
         return networks
     except Exception as e:
-        raise handle_error(e, "Network scan failed")
+        log(f"Network scan failed: {str(e)}")
+        return []
 
 
 @router.get("/access-points")
 async def get_access_points():
     """Get available WiFi access points and check if connected."""
     try:
-        # Get system bus
+        log("Starting access point scan", module="network")
         bus = init_dbus()
 
-        # Get WiFi device path
         device_path = get_wifi_device()
         if not device_path:
+            log("No WiFi device found", level="error", module="network")
             raise HTTPException(status_code=404, detail="No WiFi device found")
 
         # Create device object and interface
@@ -133,7 +102,7 @@ async def get_access_points():
 
         # Get access points
         access_points = wifi_interface.GetAccessPoints()
-        networks = []
+        networks_dict = {}
 
         for ap_path in access_points:
             ap = bus.get_object("org.freedesktop.NetworkManager", ap_path)
@@ -151,21 +120,25 @@ async def get_access_points():
             # Check if this is the active access point
             connected = ap_path == active_ap_path
 
-            networks.append(
-                {
+            if ssid not in networks_dict:
+                networks_dict[ssid] = {
                     "ssid": ssid,
                     "strength": int(strength),
                     "connected": connected,
                     "id": f"{hwAddress}_{ssid}",  # Create a unique __ID__ by combining hwAddress and ssid
                 }
-            )
+            if connected:
+                networks_dict[ssid]["connected"] = True
+        networks = list(networks_dict.values())
+        log(f"Found {len(networks)} unique networks", module="network")
+        return sorted(networks, key=lambda x: x["strength"], reverse=True)
 
-        return networks
     except Exception as e:
+        log(f"Failed to get access points: {str(e)}", level="error", module="network")
         tb = traceback.extract_tb(e.__traceback__)
         filename, line_no, func, text = tb[-1]
         error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
-        logging.error(f"Failed to get access points: {str(e)} at {error_loc}")
+        log(f"Failed to get access points: {str(e)} at {error_loc}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to get access points: {str(e)} at {error_loc}",
@@ -176,6 +149,7 @@ async def get_access_points():
 async def connect_network(credentials: NetworkCredentials):
     """Connect to WiFi network."""
     try:
+        log(f"Attempting to connect to network: {credentials.ssid}", module="network")
         device_path = get_wifi_device()
         global DB
         # Get NetworkManager interface
@@ -231,7 +205,9 @@ async def connect_network(credentials: NetworkCredentials):
         wifi_device = get_wifi_device()
         nm_interface.ActivateConnection(new_connection, wifi_device, "/")
 
+        log(f"Successfully connected to {credentials.ssid}", module="network")
         return {"status": "success", "message": f"Connected to {credentials.ssid}"}
 
     except Exception as e:
-        raise handle_error(e, "Network connection failed")
+        log(f"Failed to connect to network: {str(e)}", level="error", module="network")
+        return {"status": "error", "message": str(e)}
