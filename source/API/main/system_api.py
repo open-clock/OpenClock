@@ -22,6 +22,29 @@ class LogSource(str, Enum):
     ALL = "all"
 
 
+def format_time_arg(time_str: Optional[str]) -> str:
+    """Format time argument for journalctl."""
+    if not time_str:
+        return ""
+
+    try:
+        now = datetime.now()
+        if time_str.endswith("m"):
+            delta = timedelta(minutes=int(time_str[:-1]))
+        elif time_str.endswith("h"):
+            delta = timedelta(hours=int(time_str[:-1]))
+        elif time_str.endswith("d"):
+            delta = timedelta(days=int(time_str[:-1]))
+        else:
+            return ""
+
+        target_time = now - delta
+        return target_time.strftime("%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        log(f"Invalid time format: {time_str}", level="warning", module="system")
+        return ""
+
+
 # --- Endpoints ---
 
 
@@ -89,17 +112,15 @@ async def get_logs(
         # Build command based on source
         if source == LogSource.JOURNAL:
             cmd = "journalctl"
-            if since:
-                if since.endswith("m"):
-                    delta = timedelta(minutes=int(since[:-1]))
-                elif since.endswith("h"):
-                    delta = timedelta(hours=int(since[:-1]))
-                elif since.endswith("d"):
-                    delta = timedelta(days=int(since[:-1]))
-                cmd += f" --since '{delta}'"
 
-            if until:
-                cmd += f" --until '{until}'"
+            # Format time arguments
+            since_time = format_time_arg(since)
+            until_time = format_time_arg(until)
+
+            if since_time:
+                cmd += f" --since '{since_time}'"
+            if until_time:
+                cmd += f" --until '{until_time}'"
 
             if services:
                 service_list = services.split(",")

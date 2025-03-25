@@ -388,26 +388,6 @@ async def getTimezones():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/setClientID")
-async def set_clientID(id: str):
-    try:
-        DB["client_id"] = id
-        await set_configDB(DB["config"])
-        return {"status": "success", "client_id": id}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/setAuthority")
-async def set_Authority(authority: str):
-    try:
-        DB["authority"] = authority
-        await set_configDB(DB["authority"])
-        return {"status": "success", "authority": authority}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 def set_config(config: ConfigModel):
     """Set system configuration."""
     try:
