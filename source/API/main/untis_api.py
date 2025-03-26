@@ -1,16 +1,32 @@
 from fastapi import APIRouter, HTTPException
 import webuntis
+import logging
 import asyncio
 import json
+import traceback
 import datetime
 import time
 from typing import Optional
+from util import log
+from pathlib import Path
 import webuntis.errors
 from db import DB, SECURE_DB
 from dataClasses import credentials
-from util import log
 
 router = APIRouter(prefix="/untis", tags=["Untis"])
+
+
+# --- Error Types ---
+class UntisSessionError(Exception):
+    """Raised when Untis session operations fail."""
+
+    pass
+
+
+class UntisCredentialsError(Exception):
+    """Raised when Untis credentials are invalid or missing."""
+
+    pass
 
 
 # --- Session Management ---
@@ -18,8 +34,7 @@ async def set_untis_session():
     """Initialize Untis session with context manager."""
     try:
         if not SECURE_DB.get("untis_creds"):
-            log("No credentials configured", level="error", module="untis")
-            return False
+            raise UntisCredentialsError("No credentials configured")
 
         creds = SECURE_DB["untis_creds"]
         retry_count = 3
@@ -27,32 +42,27 @@ async def set_untis_session():
 
         while retry_count > 0:
             try:
-                session = webuntis.Session(
+                with webuntis.Session(
                     username=creds.username,
                     password=creds.password,
                     server=creds.server,
                     school=creds.school,
                     useragent="OpenClock",
-                ).login()
-                DB["untis_session"] = session
-                DB["untis_state"] = True
-                log("Untis session established successfully", module="untis")
-                return True
+                ).login() as session:
+                    # Test connection with student parameter
+                    DB["untis_state"] = True
+                    return True
 
             except Exception as e:
                 retry_count -= 1
                 if retry_count == 0:
                     raise e
-                log(
-                    f"Connection error, retrying... ({3-retry_count}/3)",
-                    level="warning",
-                    module="untis",
-                )
+                logging.warning(f"Connection error, retrying... ({3-retry_count}/3)")
                 await asyncio.sleep(delay)
 
     except Exception as e:
         DB["untis_state"] = False
-        log(f"Failed to create Untis session: {str(e)}", level="error", module="untis")
+        logging.error(f"Failed to create Untis session: {str(e)}")
         return False
 
 
@@ -60,30 +70,19 @@ async def set_timetable(dayRange: int) -> bool:
     """Get and store timetable data."""
     try:
         if not SECURE_DB.get("untis_creds"):
-            log("No Untis credentials configured", level="error", module="untis")
-            return False
+            raise ValueError("No Untis credentials configured")
 
         creds = SECURE_DB["untis_creds"]
 
         # Calculate date range
-        start_date = datetime.datetime.now()
+        start_date = datetime.datetime.now().date()
         end_date = start_date + datetime.timedelta(days=dayRange)
 
-        DB["timeTable"] = sorted(
-            DB["untis_session"].my_timetable(start=start_date, end=end_date),
-            key=lambda x: x.start,
-            reverse=False,
-        )
+        DB["timeTable"] = DB["untis_session"].timetable(start=start_date, end=end_date)
         return True
 
-    except webuntis.errors.RemoteError as e:
-        if e.code == -8509:
-            log("No right for getTeachers()", level="warning", module="untis")
-        else:
-            log(f"Failed to fetch timetable: {str(e)}", level="error", module="untis")
-        return False
     except Exception as e:
-        log(f"Failed to fetch timetable: {str(e)}", level="error", module="untis")
+        logging.error(f"Failed to fetch timetable: {str(e)}")
         return False
 
 
@@ -95,8 +94,18 @@ async def set_next_holiday() -> bool:
         DB["holidays"] = DB["untis_session"].holidays()
         return True
     except Exception as e:
-        log(f"Failed to fetch holidays: {e}", level="error", module="untis")
+        logging.error(f"Failed to fetch holidays: {e}")
         return False
+
+
+# --- Utility Functions ---
+def handle_error(e: Exception, message: str) -> HTTPException:
+    """Utility function for consistent error handling."""
+    tb = traceback.extract_tb(e.__traceback__)
+    filename, line_no, func, text = tb[-1]
+    error_loc = f"File: {filename}, Line: {line_no}, Function: {func}"
+    logging.error(f"{message}: {str(e)} at {error_loc}")
+    return HTTPException(status_code=500, detail=f"{message}: {str(e)} at {error_loc}")
 
 
 async def save_credentials(creds: dict):
@@ -107,8 +116,7 @@ async def save_credentials(creds: dict):
             outfile.write(json_object)
         return SECURE_DB["untis_creds"]
     except Exception as e:
-        log(f"Failed to save credentials: {str(e)}", level="error", module="untis")
-        return None
+        raise handle_error(e, "Failed to save credentials")
 
 
 def validate_server_url(server: str) -> str:
@@ -131,7 +139,7 @@ def validate_server_url(server: str) -> str:
         return server  # WebUntis lib will add https:// and /WebUntis
 
     except Exception as e:
-        log(f"Failed to validate server URL: {str(e)}", level="error", module="untis")
+        logging.error(f"URL validation error: {str(e)}")
         return ""
 
 
@@ -142,7 +150,7 @@ async def setCreds(cred: credentials):
     try:
         # Format and validate server URL first
         cred.server = validate_server_url(cred.server)
-        log(f"Attempting to connect to Untis server: {cred.server}", module="untis")
+        logging.info(f"Attempting to connect to Untis server: {cred.server}")
 
         # Save credentials first
         SECURE_DB["untis_creds"] = cred
@@ -161,8 +169,7 @@ async def setCreds(cred: credentials):
         }
 
     except Exception as e:
-        log(f"Failed to set Untis credentials: {str(e)}", level="error", module="untis")
-        return {"status": "error", "message": str(e)}
+        raise handle_error(e, "Failed to set credentials")
 
 
 @router.get("/timetable")
@@ -179,10 +186,13 @@ async def get_timetable(dayRange: int = 10):
         for entry in timetable:
             formatted_timetable.append(
                 {
-                    "subject": entry.subjects[0].name if entry.subjects else "",
+                    "subject": entry.subjects[0].name if entry.subjects else "Unknown",
                     "start": entry.start.strftime("%Y-%m-%d %H:%M"),
                     "end": entry.end.strftime("%Y-%m-%d %H:%M"),
-                    "room": entry.rooms[0].name if entry.rooms else "",
+                    "room": entry.rooms[0].name if entry.rooms else "Unknown",
+                    "teachers": (
+                        [t.name for t in entry.teachers] if entry.teachers else []
+                    ),
                     "classes": [c.name for c in entry.klassen] if entry.klassen else [],
                 }
             )
@@ -190,130 +200,7 @@ async def get_timetable(dayRange: int = 10):
         return formatted_timetable
 
     except Exception as e:
-        log(f"Failed to get timetable: {str(e)}", level="error", module="untis")
-        return []
-
-
-@router.get("/current-lesson")
-async def get_current_lesson():
-    """Get the current lesson."""
-    try:
-        now = datetime.datetime.now()
-        current_lesson = next(
-            (lesson for lesson in DB["timeTable"] if lesson.start <= now <= lesson.end),
-            None,
-        )
-        if not current_lesson:
-            raise ValueError("No current lesson found")
-        return {
-            "subject": (
-                current_lesson.subjects[0].name if current_lesson.subjects else ""
-            ),
-            "start": current_lesson.start.strftime("%Y-%m-%d %H:%M"),
-            "end": current_lesson.end.strftime("%Y-%m-%d %H:%M"),
-            "room": current_lesson.rooms[0].name if current_lesson.rooms else "",
-            "classes": (
-                [c.name for c in current_lesson.klassen]
-                if current_lesson.klassen
-                else []
-            ),
-        }
-    except Exception as e:
-        log(f"Failed to get current lesson: {str(e)}", level="error", module="untis")
-        return {
-            "subject": "",
-            "start": "",
-            "end": "",
-            "room": "",
-            "classes": [],
-        }
-
-
-@router.get("/lessons-today")
-async def get_lessons_today():
-    """Get all lessons of the current day."""
-    try:
-        today = datetime.datetime.now().date()
-        lessons_today = [
-            lesson for lesson in DB["timeTable"] if lesson.start.date() == today
-        ]
-        formatted_lessons = [
-            {
-                "subject": lesson.subjects[0].name if lesson.subjects else "",
-                "start": lesson.start.strftime("%Y-%m-%d %H:%M"),
-                "end": lesson.end.strftime("%Y-%m-%d %H:%M"),
-                "room": lesson.rooms[0].name if lesson.rooms else "",
-                "classes": [c.name for c in lesson.klassen] if lesson.klassen else [],
-            }
-            for lesson in lessons_today
-        ]
-        return formatted_lessons
-    except Exception as e:
-        log(f"Failed to get lessons for today: {str(e)}", level="error", module="untis")
-        return []
-
-
-@router.get("/lessons-week")
-async def get_lessons_week():
-    """Get all lessons of the current week."""
-    try:
-        today = datetime.datetime.now()
-        start_of_week = today - datetime.timedelta(days=today.weekday())
-        end_of_week = start_of_week + datetime.timedelta(days=6)
-        lessons_week = [
-            lesson
-            for lesson in DB["timeTable"]
-            if start_of_week <= lesson.start <= end_of_week
-        ]
-        formatted_lessons = [
-            {
-                "subject": lesson.subjects[0].name if lesson.subjects else "",
-                "start": lesson.start.strftime("%Y-%m-%d %H:%M"),
-                "end": lesson.end.strftime("%Y-%m-%d %H:%M"),
-                "room": lesson.rooms[0].name if lesson.rooms else "",
-                "classes": [c.name for c in lesson.klassen] if lesson.klassen else [],
-            }
-            for lesson in lessons_week
-        ]
-        return formatted_lessons
-    except Exception as e:
-        log(
-            f"Failed to get lessons for the week: {str(e)}",
-            level="error",
-            module="untis",
-        )
-        return []
-
-
-@router.get("/next-event")
-async def get_next_event():
-    """Get the next event (holiday)."""
-    try:
-        now = datetime.datetime.now()
-        next_event = None
-
-        # Check for next holiday
-        if DB["holidays"]:
-            next_holiday = min(
-                (holiday for holiday in DB["holidays"] if holiday.start > now),
-                key=lambda x: x.start,
-                default=None,
-            )
-            if next_holiday:
-                next_event = {
-                    "type": "holiday",
-                    "name": next_holiday.name,
-                    "start": next_holiday.start.strftime("%Y-%m-%d"),
-                    "end": next_holiday.end.strftime("%Y-%m-%d"),
-                }
-
-        if not next_event:
-            raise ValueError("No upcoming events found")
-
-        return next_event
-    except Exception as e:
-        log(f"Failed to get next event: {str(e)}", level="error", module="untis")
-        return {"type": "", "name": "", "start": "", "end": ""}
+        raise handle_error(e, "Failed to get timetable")
 
 
 @router.get("/status")
@@ -326,22 +213,7 @@ async def get_untis_status():
             "holidays": len(DB["holidays"]),
         }
     except Exception as e:
-        log(f"Failed to get Untis status: {str(e)}", level="error", module="untis")
-        return {"session": False, "timetable_entries": 0, "holidays": 0}
-
-
-@router.get("/login-name")
-async def get_login_name():
-    """Get the current login name."""
-    try:
-        if not SECURE_DB.get("untis_creds"):
-            log("No Untis credentials configured", level="error", module="untis")
-            raise ValueError("No Untis credentials configured")
-        creds = SECURE_DB["untis_creds"]
-        return {"username": creds.username}
-    except Exception as e:
-        log(f"Failed to get login name: {str(e)}", level="error", module="untis")
-        return {"username": ""}
+        raise handle_error(e, "Failed to get Untis status")
 
 
 # --- Update Loop ---
@@ -351,51 +223,62 @@ async def untis_update_loop():
         try:
             if not DB["untis_state"] or DB["untis_session"] is None:
                 try:
-                    # Only try to load credentials file if we don't have credentials in memory
-                    if not SECURE_DB.get("untis_creds"):
-                        try:
-                            with open("creds.json", "r") as f:
-                                creds = json.load(f)
-                                SECURE_DB["untis_creds"] = credentials(**creds)
-                                log("Loaded credentials from file", module="untis")
-                        except FileNotFoundError:
-                            log(
-                                "No credentials file found",
-                                level="warning",
-                                module="untis",
-                            )
-                            await asyncio.sleep(30)
-                            continue
-                        except json.JSONDecodeError:
-                            log(
-                                "Invalid credentials file",
-                                level="error",
-                                module="untis",
-                            )
-                            await asyncio.sleep(30)
-                            continue
-
-                    if SECURE_DB.get("untis_creds"):
-                        await set_untis_session()
-                    else:
-                        log("No credentials available", level="warning", module="untis")
-
+                    if not SECURE_DB["untis_creds"]:
+                        with open("creds.json", "r") as f:
+                            creds = json.load(f)
+                            SECURE_DB["untis_creds"] = credentials(**creds)
+                    await set_untis_session()
                 except Exception as e:
-                    log(
-                        f"Credential loading error: {str(e)}",
-                        level="error",
-                        module="untis",
-                    )
-                    await asyncio.sleep(30)
+                    logging.error(f"Credential loading error: {e}")
+                    await asyncio.sleep(300)
                     continue
 
             if await set_timetable(10):
-                log("Timetable updated successfully", module="untis")
+                logging.info("Timetable updated successfully")
             else:
-                log("Failed to update timetable", level="warning", module="untis")
-
+                logging.warning("Failed to update timetable")
         except Exception as e:
-            log(f"Untis update error: {str(e)}", level="error", module="untis")
+            logging.error(f"Untis update error: {e}")
             DB["untis_state"] = False
+        await asyncio.sleep(300)
 
-        await asyncio.sleep(30)
+
+@router.post("/logout")
+async def logout_untis():
+    """Logout from Untis and clear session data."""
+    try:
+        log("Starting Untis logout process", module="untis")
+
+        # Close existing session if present
+        if DB.get("untis_session"):
+            try:
+                DB["untis_session"].logout()
+                log("Closed Untis session", module="untis")
+            except Exception as e:
+                log(f"Error closing session: {str(e)}", level="warning", module="untis")
+
+        # Clear all session and credential data
+        DB["untis_session"] = None
+        DB["untis_state"] = False
+        DB["timeTable"] = []
+        DB["holidays"] = []
+        SECURE_DB["untis_creds"] = None
+
+        # Remove credentials file if it exists
+        try:
+            if Path("creds.json").exists():
+                Path("creds.json").unlink()
+                log("Removed credentials file", module="untis")
+        except Exception as e:
+            log(
+                f"Failed to remove credentials file: {str(e)}",
+                level="warning",
+                module="untis",
+            )
+
+        log("Untis logout completed", module="untis")
+        return {"status": "success", "message": "Logged out successfully"}
+
+    except Exception as e:
+        log(f"Logout failed: {str(e)}", level="error", module="untis")
+        return {"status": "error", "message": f"Logout failed: {str(e)}"}

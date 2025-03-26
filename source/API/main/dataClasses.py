@@ -120,7 +120,7 @@ class ConfigModel(BaseModel):
     setup: bool = False
     wallmounted: bool = False
     debug: bool = False
-    hostname: str = "openclock"
+    hostname: str = f"openclock"
     timezone: str = "UTC"
 
     def toJSON(self) -> str:

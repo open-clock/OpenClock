@@ -77,11 +77,11 @@ async def set_authority(authority: str):
 
 @router.get("/login")
 async def initiate_ms_login(force: bool = False):
-    """Start Microsoft login flow or return existing token info."""
+    """Start Microsoft login flow or return existing token/flow info."""
     try:
         # Check if we have a valid token and force is not requested
         if not force and DB.get("ms_result") and DB["ms_result"].get("access_token"):
-            accounts = DB["ms_app"].get_accounts() if DB["ms_app"] else []
+            accounts = DB["ms_app"].get_accounts() if DB.get("ms_app") else []
             if accounts:
                 expires_on = DB["ms_result"].get("expires_on", 0)
                 current_time = time.time()
@@ -90,32 +90,53 @@ async def initiate_ms_login(force: bool = False):
                 return {
                     "status": "authenticated",
                     "account": accounts[0].get("username", "Unknown"),
-                    "expires_on": expires_on,
+                    "expires_at": expires_on,
                     "time_left_seconds": int(time_left),
                     "scopes": DB["ms_result"].get("scope", []),
                 }
 
-        # If no valid token or force requested, start new flow
+        # Check for existing valid device flow before creating new one
+        if not force and DB.get("ms_flow"):
+            current_time = time.time()
+            flow_expires = DB["ms_flow"].get("expires_at", 0)
+
+            if current_time < flow_expires:
+                log("Returning existing device flow", module="microsoft")
+                return {
+                    "status": "login_required",
+                    "verification_uri": DB["ms_flow"]["verification_uri"],
+                    "user_code": DB["ms_flow"]["user_code"],
+                    "message": DB["ms_flow"]["message"],
+                    "expires_at": int(flow_expires),
+                }
+
+        # Only create new flow if forced or no valid flow exists
         app = init_msal_app()
         flow = app.initiate_device_flow(scopes=SECURE_DB["scopes"])
         if "user_code" not in flow:
+            log("Failed to create device flow", level="error", module="microsoft")
             raise ValueError("Failed to create device flow")
+
+        # Store expiration time
+        flow["expires_at"] = int(time.time() + flow.get("expires_in", 0))
 
         # Clear existing token if forcing new login
         if force:
             DB["ms_result"] = None
 
         DB["ms_flow"] = flow
+        log("Created new device flow", module="microsoft")
+
         return {
             "status": "login_required",
             "verification_uri": flow["verification_uri"],
             "user_code": flow["user_code"],
             "message": flow["message"],
-            "expires_in": flow.get("expires_in", 0),
+            "expires_at": flow["expires_at"],
         }
 
     except Exception as e:
-        log(f"Microsoft login error: {str(e)}")
+        log(f"Microsoft login error: {str(e)}", level="error", module="microsoft")
         return {"status": "error", "message": str(e)}
 
 
@@ -237,14 +258,39 @@ async def get_ms_notifications():
 
 @router.post("/logout")
 async def logout_ms_account():
-    """Logout from Microsoft account."""
+    """Logout from Microsoft account and clear all session data."""
     try:
-        DB["ms_app"].remove_account(DB["account"])
+        log("Starting Microsoft logout process", module="microsoft")
+        app = init_msal_app()
+
+        # Get all accounts and remove them
+        accounts_removed = 0
+        if app:
+            accounts = app.get_accounts()
+            for account in accounts:
+                app.remove_account(account)
+                accounts_removed += 1
+                log(
+                    f"Removed account: {account.get('username', 'Unknown')}",
+                    module="microsoft",
+                )
+
+        # Clear all session data
+        DB["ms_result"] = None
+        DB["ms_flow"] = None
         DB["account"] = None
-        return {"status": "success", "message": "Logged out successfully"}
+
+        log(
+            f"Logout completed, removed {accounts_removed} accounts", module="microsoft"
+        )
+        return {
+            "status": "success",
+            "message": "Logged out successfully",
+            "accounts_removed": accounts_removed,
+        }
     except Exception as e:
-        log(f"Failed to logout: {e}")
-        return {"status": "error", "message": "Failed to logout"}
+        log(f"Logout failed: {str(e)}", level="error", module="microsoft")
+        return {"status": "error", "message": f"Logout failed: {str(e)}"}
 
 
 async def ms_refresh_token_loop():
