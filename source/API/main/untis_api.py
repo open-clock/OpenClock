@@ -15,6 +15,10 @@ from dataClasses import credentials
 
 router = APIRouter(prefix="/untis", tags=["Untis"])
 
+# Add new constant for session timeout
+SESSION_TIMEOUT = 1800  # 30 minutes in seconds
+LAST_SESSION_REFRESH = time.time()
+
 
 # --- Error Types ---
 class UntisSessionError(Exception):
@@ -30,6 +34,28 @@ class UntisCredentialsError(Exception):
 
 
 # --- Session Management ---
+async def refresh_session_if_needed():
+    """Check and refresh session if timeout exceeded."""
+    global LAST_SESSION_REFRESH
+
+    current_time = time.time()
+    if current_time - LAST_SESSION_REFRESH > SESSION_TIMEOUT:
+        try:
+            if DB.get("untis_session"):
+                DB["untis_session"].logout()
+            DB["untis_session"] = None
+            DB["untis_state"] = False
+            success = await set_untis_session()
+            if success:
+                LAST_SESSION_REFRESH = current_time
+                return True
+            return False
+        except Exception as e:
+            log(f"Session refresh failed: {str(e)}", level="error", module="untis")
+            return False
+    return True
+
+
 async def set_untis_session():
     """Initialize Untis session with context manager."""
     try:
@@ -42,47 +68,85 @@ async def set_untis_session():
 
         while retry_count > 0:
             try:
-                with webuntis.Session(
+                # Force new session
+                if DB.get("untis_session"):
+                    try:
+                        DB["untis_session"].logout()
+                    except:
+                        pass
+
+                session = webuntis.Session(
                     username=creds.username,
                     password=creds.password,
                     server=creds.server,
                     school=creds.school,
                     useragent="OpenClock",
-                ).login() as session:
-                    # Test connection with student parameter
-                    DB["untis_state"] = True
-                    return True
+                ).login()
 
-            except Exception as e:
+                DB["untis_session"] = session
+                DB["untis_state"] = True
+                global LAST_SESSION_REFRESH
+                LAST_SESSION_REFRESH = time.time()
+                log("Untis session established", module="untis")
+                return True
+
+            except webuntis.errors.RemoteError as e:
                 retry_count -= 1
                 if retry_count == 0:
                     raise e
-                logging.warning(f"Connection error, retrying... ({3-retry_count}/3)")
+                log(
+                    f"Connection error, retrying... ({3-retry_count}/3)",
+                    level="warning",
+                    module="untis",
+                )
                 await asyncio.sleep(delay)
+                delay *= 2  # Exponential backoff
 
     except Exception as e:
         DB["untis_state"] = False
-        logging.error(f"Failed to create Untis session: {str(e)}")
+        log(f"Failed to create Untis session: {str(e)}", level="error", module="untis")
         return False
 
 
 async def set_timetable(dayRange: int) -> bool:
     """Get and store timetable data."""
     try:
-        if not SECURE_DB.get("untis_creds"):
-            raise ValueError("No Untis credentials configured")
+        if not await refresh_session_if_needed():
+            log("Failed to refresh session", level="error", module="untis")
+            return False
 
-        creds = SECURE_DB["untis_creds"]
+        if not SECURE_DB.get("untis_creds"):
+            log("No Untis credentials configured", level="error", module="untis")
+            return False
+
+        if not DB.get("untis_session"):
+            log("No active Untis session", level="error", module="untis")
+            if not await set_untis_session():
+                return False
 
         # Calculate date range
         start_date = datetime.datetime.now().date()
         end_date = start_date + datetime.timedelta(days=dayRange)
 
-        DB["timeTable"] = DB["untis_session"].timetable(start=start_date, end=end_date)
-        return True
+        # Get timetable for current student
+        timetable = DB["untis_session"].my_timetable(
+            start=start_date,
+            end=end_date,
+        )
 
+        if timetable:
+            DB["timeTable"] = sorted(timetable, key=lambda x: x.start, reverse=False)
+            log(f"Fetched {len(DB['timeTable'])} timetable entries", module="untis")
+            return True
+
+        log("No timetable entries found", level="warning", module="untis")
+        return False
+
+    except webuntis.errors.RemoteError as e:
+        log(f"Untis remote error: {str(e)}", level="error", module="untis")
+        return False
     except Exception as e:
-        logging.error(f"Failed to fetch timetable: {str(e)}")
+        log(f"Failed to fetch timetable: {str(e)}", level="error", module="untis")
         return False
 
 
@@ -221,26 +285,34 @@ async def untis_update_loop():
     """Background task for Untis updates."""
     while True:
         try:
-            if not DB["untis_state"] or DB["untis_session"] is None:
-                try:
-                    if not SECURE_DB["untis_creds"]:
+            await refresh_session_if_needed()
+
+            if DB["untis_state"] and DB.get("untis_session"):
+                if await set_timetable(10):
+                    log("Timetable updated successfully", module="untis")
+                else:
+                    log("Failed to update timetable", level="warning", module="untis")
+            else:
+                if not SECURE_DB["untis_creds"]:
+                    try:
                         with open("creds.json", "r") as f:
                             creds = json.load(f)
                             SECURE_DB["untis_creds"] = credentials(**creds)
-                    await set_untis_session()
-                except Exception as e:
-                    logging.error(f"Credential loading error: {e}")
-                    await asyncio.sleep(300)
-                    continue
+                    except Exception as e:
+                        log(
+                            f"Credential loading error: {e}",
+                            level="error",
+                            module="untis",
+                        )
+                        await asyncio.sleep(300)
+                        continue
+                await set_untis_session()
 
-            if await set_timetable(10):
-                logging.info("Timetable updated successfully")
-            else:
-                logging.warning("Failed to update timetable")
         except Exception as e:
-            logging.error(f"Untis update error: {e}")
+            log(f"Untis update error: {e}", level="error", module="untis")
             DB["untis_state"] = False
-        await asyncio.sleep(300)
+
+        await asyncio.sleep(60)  # Check more frequently
 
 
 @router.post("/logout")
