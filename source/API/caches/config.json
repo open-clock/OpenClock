@@ -1,0 +1,8 @@
+{
+  "model": "Mini",
+  "setup": false,
+  "wallmounted": false,
+  "debug": false,
+  "hostname": "Open-Clock",
+  "timezone": "UTC"
+}
