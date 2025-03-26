@@ -9,6 +9,7 @@ from pathlib import Path
 from dataClasses import ConfigModel, ClockType
 from db import DB
 from util import handle_error, log
+import shutil
 
 # Change config directory to be in user space instead of /etc
 CONFIG_DIR = Path.home() / ".config" / "openclock"

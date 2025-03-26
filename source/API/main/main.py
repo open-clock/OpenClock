@@ -8,6 +8,7 @@ import logging
 from enum import Enum
 from pathlib import Path
 from dataClasses import *
+from fastapi import HTTPException
 
 from microsoft_api import router as ms_router, ms_refresh_token_loop
 from untis_api import router as untis_router, untis_update_loop

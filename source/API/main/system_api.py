@@ -3,7 +3,7 @@ import os
 import subprocess
 from typing import Dict, Any, Union
 from asyncio.subprocess import create_subprocess_shell
-from db import DB
+from db import DB, SECURE_DB
 from dataClasses import command, model
 from util import handle_error
 from util import log
@@ -11,6 +11,10 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Optional, List
 import json
+from fastapi import HTTPException
+from dataClasses import ConfigModel, ClockType
+from config_api import router as config_router
+import msal
 
 
 router = APIRouter(prefix="/system", tags=["System"])
@@ -159,3 +163,48 @@ async def get_logs(
     except Exception as e:
         log(f"Log retrieval failed: {str(e)}", level="error", module="system")
         return f"Error retrieving logs: {str(e)}"
+
+
+@router.post("/factory-reset")
+async def system_factory_reset():
+    """Perform system-wide factory reset."""
+    try:
+        # 1. Clear all runtime data
+        DB.clear()
+        SECURE_DB.clear()
+
+        # 2. Reinitialize DB with defaults
+        DB.update(
+            {
+                "ms_result": None,
+                "ms_accounts": None,
+                "ms_flow": None,
+                "ms_app": None,
+                "token_cache": msal.SerializableTokenCache(),
+                "untis_session": None,
+                "untis_state": "disconnected",
+                "timeTable": [],
+                "holidays": [],
+                "bus": None,
+                "wifi_device": None,
+                "config": ConfigModel(
+                    model=ClockType.Mini, setup=False, wallmounted=False
+                ),
+            }
+        )
+
+        # 3. Call config API factory reset
+        await config_router.factory_reset()
+
+        # 4. Restart background tasks
+        # This will be handled by lifespan management
+
+        return {
+            "status": "success",
+            "message": "System factory reset completed. Please restart the application.",
+        }
+    except Exception as e:
+        log(f"System factory reset failed: {str(e)}", level="error", module="main")
+        raise HTTPException(
+            status_code=500, detail=f"System factory reset failed: {str(e)}"
+        )
