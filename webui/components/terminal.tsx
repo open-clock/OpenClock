@@ -23,9 +23,12 @@ export default function TerminalDialogContent() {
     const [command, setCommand] = useState("")
     const [history, setHistory] = useState<Array<{ command: string, output: CommandOutput }>>([])
     const scrollRef = useRef<HTMLDivElement>(null)
+    const inputRef = useRef<HTMLInputElement>(null)
 
     useEffect(() => {
         scrollRef.current?.scrollIntoView({ behavior: "smooth" })
+        inputRef.current?.focus()
+        inputRef.current?.select()
     }, [history])
 
     const runCommand = useMutation({
@@ -80,6 +83,7 @@ export default function TerminalDialogContent() {
             </ScrollArea>
             <form onSubmit={handleSubmit} className="flex gap-2">
                 <Input
+                    ref={inputRef}
                     className="flex-grow font-mono"
                     placeholder="root@localhost"
                     value={command}

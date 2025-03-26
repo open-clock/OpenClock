@@ -128,8 +128,19 @@ export default function LogViewDialogContent() {
                                 <SelectItem value="all">All</SelectItem>
                             </SelectContent>
                         </Select>
-                        {// TODO: Add services select
-                        }
+                        <Select onValueChange={(value) => { setLogServices(value === "all" ? undefined : value) }} defaultValue={logServices ? logServices : "all"}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Service" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="nginx">Webserver</SelectItem>
+                                <SelectItem value="api">API</SelectItem>
+                                <SelectItem value="displaydriver">Displaydriver</SelectItem>
+                                <SelectItem value="splash-boot">Bootsplash</SelectItem>
+                                <SelectItem value="splash-shutdown">Shutdownsplash</SelectItem>
+                                <SelectItem value="all">All</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                 </div>
             </DialogTitle>
