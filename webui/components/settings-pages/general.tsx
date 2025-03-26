@@ -1,6 +1,7 @@
 import { TabsContent } from "../ui/tabs";
 import DebugSettings from "./settings-components/debug-settings";
 import HostnameSettings from "./settings-components/hostname-settings";
+import PowerSettings from "./settings-components/power-settings";
 import TimezoneSettings from "./settings-components/timezone-settings";
 import WallmountedSettings from "./settings-components/wallmounted-settings";
 import {
@@ -18,6 +19,7 @@ export default function SettingsGeneralPage() {
             <TimezoneSettings />
             <HostnameSettings />
             <WallmountedSettings />
+            <PowerSettings />
             <div className="mr-2 mt-10">
                 <Accordion type="single" collapsible>
                     <AccordionItem value="advanced" >
