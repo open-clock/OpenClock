@@ -21,16 +21,19 @@ import { CommandOutput } from "@/lib/apitypes"
 
 export default function TerminalDialogContent() {
     const [command, setCommand] = useState("")
-    const [history, setHistory] = useState<Array<{command: string, output: CommandOutput}>>([])
+    const [history, setHistory] = useState<Array<{ command: string, output: CommandOutput }>>([])
     const scrollRef = useRef<HTMLDivElement>(null)
+    const inputRef = useRef<HTMLInputElement>(null)
 
     useEffect(() => {
         scrollRef.current?.scrollIntoView({ behavior: "smooth" })
+        inputRef.current?.focus()
+        inputRef.current?.select()
     }, [history])
 
     const runCommand = useMutation({
         mutationFn: async (cmd: string) => {
-            const res = await fetch(`${API_ENDPOINT}/run`, {
+            const res = await fetch(`${API_ENDPOINT}/system/run`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ command: cmd }),
@@ -55,15 +58,15 @@ export default function TerminalDialogContent() {
             <DialogTitle>Terminal</DialogTitle>
             <Collapsible defaultOpen>
                 <CollapsibleTrigger>
-                <CollapsibleContent>
-                    <Alert variant="destructive">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertTitle>Warning</AlertTitle>
-                        <AlertDescription>
-                            This is a root terminal on your device. Be careful. Any actions you take here are on you and not covered by anyone or anything.
-                        </AlertDescription>
-                    </Alert>
-                </CollapsibleContent>
+                    <CollapsibleContent>
+                        <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertTitle>Warning</AlertTitle>
+                            <AlertDescription>
+                                This is a root terminal on your device. Be careful. Any actions you take here are on you and not covered by anyone or anything.
+                            </AlertDescription>
+                        </Alert>
+                    </CollapsibleContent>
                 </CollapsibleTrigger>
             </Collapsible>
             <ScrollArea className="h-[70vh] p-4 font-mono">
@@ -79,7 +82,8 @@ export default function TerminalDialogContent() {
                 <div ref={scrollRef} />
             </ScrollArea>
             <form onSubmit={handleSubmit} className="flex gap-2">
-                <Input 
+                <Input
+                    ref={inputRef}
                     className="flex-grow font-mono"
                     placeholder="root@localhost"
                     value={command}
