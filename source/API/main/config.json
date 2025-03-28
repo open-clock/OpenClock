@@ -3,6 +3,6 @@
   "setup": true,
   "wallmounted": false,
   "debug": false,
-  "hostname": "opencl",
+  "hostname": "openclock",
   "timezone": "UTC"
 }

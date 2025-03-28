@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
 import os
 import subprocess
+import pwd
 from typing import Dict, Any, Union
 from asyncio.subprocess import create_subprocess_shell
 from db import DB, SECURE_DB
@@ -207,4 +208,27 @@ async def system_factory_reset():
         log(f"System factory reset failed: {str(e)}", level="error", module="main")
         raise HTTPException(
             status_code=500, detail=f"System factory reset failed: {str(e)}"
+        )
+
+
+@router.get("/login-name")
+async def get_login_name():
+    """Get the current user's login name."""
+    try:
+        # Get real user ID (even if running as root)
+        uid = os.getuid()
+        if "SUDO_UID" in os.environ:
+            uid = int(os.environ["SUDO_UID"])
+
+        # Get user info from password database
+        user_info = pwd.getpwuid(uid)
+        username = user_info.pw_name
+
+        log(f"Retrieved login name: {username}", module="system")
+        return {"username": username}
+
+    except Exception as e:
+        log(f"Failed to get login name: {str(e)}", level="error", module="system")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get login name: {str(e)}"
         )
