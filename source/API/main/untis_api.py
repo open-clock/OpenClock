@@ -354,3 +354,21 @@ async def logout_untis():
     except Exception as e:
         log(f"Logout failed: {str(e)}", level="error", module="untis")
         return {"status": "error", "message": f"Logout failed: {str(e)}"}
+
+
+@router.get("/login-name")
+async def get_untis_login_name():
+    """Get current Untis login name from session."""
+    try:
+        if not await refresh_session_if_needed():
+            log("Failed to refresh session", level="error", module="untis")
+
+        if not SECURE_DB.get("untis_creds"):
+            log("No Untis credentials configured", level="error", module="untis")
+            return {"username": ""}
+
+        login_name = SECURE_DB["untis_creds"].username
+        return {"username": login_name}
+
+    except Exception as e:
+        raise handle_error(e, "Failed to get login name")

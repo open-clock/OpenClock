@@ -194,12 +194,6 @@ async def system_factory_reset():
             }
         )
 
-        # 3. Call config API factory reset
-        await config_router.factory_reset()
-
-        # 4. Restart background tasks
-        # This will be handled by lifespan management
-
         return {
             "status": "success",
             "message": "System factory reset completed. Please restart the application.",

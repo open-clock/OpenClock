@@ -411,3 +411,14 @@ async def set_config_endpoint(config: ConfigModel):
         raise ValueError("Failed to update configuration")
     except Exception as e:
         raise handle_error(e, "Failed to set configuration")
+
+
+@router.set("/refresh-interval-Microsoft")
+async def set_refresh_interval_Microsoft(interval: int):
+    """Set Microsoft refresh interval."""
+    try:
+        DB["config"].refresh_interval_Microsoft = interval
+        await set_configDB(DB["config"])
+        return {"status": "success", "message": "Microsoft refresh interval updated"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
