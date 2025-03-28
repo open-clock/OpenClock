@@ -11,8 +11,12 @@ import { toast } from "sonner";
 import LocalePage from "./setup-steps/locale";
 import { API_ENDPOINT } from "@/lib/constants";
 import DeviceSettingsPage from "./setup-steps/device-settings";
+import { useSearchParams } from "next/navigation";
 
 export default function SetupWizard({ clocktype }: { clocktype: ClockType }) {
+  const searchParams = useSearchParams();
+  const showSkipbutton = searchParams.get('skip');
+
   const [currentStep, setCurrentStep] = useState(0);
   const setupMutation = useMutation({
     mutationFn: async () => {
@@ -92,7 +96,7 @@ export default function SetupWizard({ clocktype }: { clocktype: ClockType }) {
       </div>
       <Button
         onClick={() => setCurrentStep(2)}
-        className="fixed top-4 right-4"
+        className={`fixed top-4 right-4 ${showSkipbutton === null ? 'hidden' : ''}`}
       >
         Skip
       </Button>
