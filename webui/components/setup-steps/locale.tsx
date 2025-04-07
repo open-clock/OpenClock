@@ -13,7 +13,7 @@ export default function LocalePage() {
     const [value, setValue] = useState("Europe/Vienna")
     const queryClient = useQueryClient();
 
-    const { isPending, error, data, isFetching } = useQuery<string[], Error>({
+    const { isPending, error, data } = useQuery<string[], Error>({
         queryKey: ['config/getTimezones'],
         queryFn: async (): Promise<string[]> => {
             const response = await fetch(

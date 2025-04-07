@@ -57,7 +57,7 @@ export default function WifiPage() {
     const [password, setPassword] = useState("");
     const [open, setOpen] = useState(false);
 
-    const { isPending, error, data, isFetching } = useQuery<Network[], Error>({
+    const { isPending, error, data } = useQuery<Network[], Error>({
         queryKey: ['network/access-points'],
         queryFn: async (): Promise<Network[]> => {
             const response = await fetch(

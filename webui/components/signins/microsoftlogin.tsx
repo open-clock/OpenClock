@@ -5,7 +5,7 @@ import { MicrosoftLoginResponse } from "@/lib/apitypes";
 import { Button } from "../ui/button";
 import { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot } from "../ui/input-otp";
 import { Check, Copy, RefreshCw } from "lucide-react";
-import React, { useState, useEffect, use } from "react";
+import React, { useState, useEffect } from "react";
 
 export default function MicrosoftLoginDialogContent({ setMicrosoftOpen, setMicrosoftComplete }: {
     setMicrosoftOpen: (value: boolean) => void,

@@ -7,7 +7,7 @@ import { toast } from "sonner";
 export default function MicrosoftAccountSettings() {
     const queryClient = useQueryClient();
 
-    const { isPending, error, data, isFetching } = useQuery<MicrosoftGetAccountsResponse[], Error>({
+    const { isPending, error, data } = useQuery<MicrosoftGetAccountsResponse[], Error>({
         queryKey: ['microsoft/accounts'],
         queryFn: async (): Promise<MicrosoftGetAccountsResponse[]> => {
             const response = await fetch(

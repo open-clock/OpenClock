@@ -4,7 +4,7 @@ import { API_ENDPOINT } from "@/lib/constants";
 import { useQuery } from "@tanstack/react-query";
 
 export default function UntisCardHeader() {
-    const { isPending, error, data, isFetching } = useQuery<UntisLoginNameResponse, Error>({
+    const { isPending, error, data } = useQuery<UntisLoginNameResponse, Error>({
         queryKey: ['untis/login-name'],
         queryFn: async (): Promise<UntisLoginNameResponse> => {
             const response = await fetch(

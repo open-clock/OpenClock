@@ -7,7 +7,7 @@ import { toast } from "sonner";
 export default function UntisAccountSettings() {
     const queryClient = useQueryClient();
 
-    const { isPending, error, data, isFetching } = useQuery<UntisLoginNameResponse, Error>({
+    const { isPending, error, data } = useQuery<UntisLoginNameResponse, Error>({
         queryKey: ['untis/login-name'],
         queryFn: async (): Promise<UntisLoginNameResponse> => {
             const response = await fetch(

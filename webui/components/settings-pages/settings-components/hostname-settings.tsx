@@ -1,7 +1,7 @@
 import { API_ENDPOINT } from "@/lib/constants";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Config } from "@/lib/apitypes";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -23,7 +23,7 @@ type FormValues = z.infer<typeof hostnameSchema>;
 export default function HostnameSettings() {
     const queryClient = useQueryClient();
 
-    const { isPending, error, data, isFetching } = useQuery<Config, Error>({
+    const { isPending, error, data } = useQuery<Config, Error>({
         queryKey: ['config/get'],
         queryFn: async (): Promise<Config> => {
             const response = await fetch(

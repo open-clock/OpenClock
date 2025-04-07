@@ -20,15 +20,15 @@ export default function LogViewDialogContent() {
     }
 
     const [logType, setLogType] = useState<LogType>(LogType.ALL);
-    const [logLines, setLogLines] = useState<Number>(100);
+    const [logLines, setLogLines] = useState<number>(100);
     const [logSince, setLogSince] = useState<string>();
     const [logUntil, setLogUntil] = useState<string>();
     const [logServices, setLogServices] = useState<string>();
-    const [logPriority, setLogPriority] = useState<Number>();
+    const [logPriority, setLogPriority] = useState<number>();
 
-    const { isPending, error, data, isFetching } = useQuery<String, Error>({
+    const { isPending, error, data } = useQuery<string, Error>({
         queryKey: ['system/logs', logType, logLines, logSince, logUntil, logServices, logPriority],
-        queryFn: async (): Promise<String> => {
+        queryFn: async (): Promise<string> => {
             const params = new URLSearchParams();
             params.append('source', logType);
             params.append('lines', logLines.toString());

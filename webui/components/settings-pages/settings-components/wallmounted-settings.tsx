@@ -11,7 +11,7 @@ export default function WallmountedSettings() {
     const [wallMounted, setWallMounted] = useState(false);
     const queryClient = useQueryClient();
 
-    const { isPending, error, data, isFetching } = useQuery<Config, Error>({
+    const { isPending, error, data } = useQuery<Config, Error>({
         queryKey: ['config/get'],
         queryFn: async (): Promise<Config> => {
             const response = await fetch(

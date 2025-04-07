@@ -1,5 +1,5 @@
 import { DialogContent, DialogTitle } from "./ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DialogFooter, DialogHeader } from "./ui/dialog";
 import { Button } from "./ui/button";
 import SettingsGeneralPage from "./settings-pages/general";

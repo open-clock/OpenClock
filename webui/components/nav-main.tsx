@@ -21,6 +21,7 @@ import { Dialog, DialogTrigger } from "./ui/dialog"
 import SettingsDialogContent from "./settings-dialog-content"
 import TerminalDialogContent from "./terminal"
 import LogViewDialogContent from "./logview"
+import Link from "next/link"
 
 export function NavMain() {
   return (
@@ -44,16 +45,16 @@ export function NavMain() {
               <SidebarMenuSub>
                 <SidebarMenuSubItem key="Clockface">
                   <SidebarMenuSubButton asChild>
-                    <a href="#">
+                    <Link href="/#">
                       <span>Clockface</span>
-                    </a>
+                    </Link>
                   </SidebarMenuSubButton>
                 </SidebarMenuSubItem>
                 <SidebarMenuSubItem key="Widgets">
                   <SidebarMenuSubButton asChild>
-                    <a href="#">
+                    <Link href="/#">
                       <span>Widgets</span>
-                    </a>
+                    </Link>
                   </SidebarMenuSubButton>
                 </SidebarMenuSubItem>
               </SidebarMenuSub>
@@ -79,9 +80,9 @@ export function NavMain() {
               <SidebarMenuSub>
                 <SidebarMenuSubItem key="Updates">
                   <SidebarMenuSubButton asChild>
-                    <a href="#">
+                    <Link href="/update">
                       <span>Updates</span>
-                    </a>
+                    </Link>
                   </SidebarMenuSubButton>
                 </SidebarMenuSubItem>
                 <SidebarMenuSubItem key="Logs">
