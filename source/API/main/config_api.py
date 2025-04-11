@@ -413,7 +413,7 @@ async def set_config_endpoint(config: ConfigModel):
         raise handle_error(e, "Failed to set configuration")
 
 
-@router.set("/refresh-interval-Microsoft")
+@router.post("/refresh-interval-Microsoft")
 async def set_refresh_interval_Microsoft(interval: int):
     """Set Microsoft refresh interval."""
     try:
